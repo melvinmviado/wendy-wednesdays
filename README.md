@@ -37,8 +37,9 @@ VITE_SUPABASE_ANON_KEY=your-anon-public-key
 For **Cloudflare Pages**, also add these under **Settings > Environment variables** in your Cloudflare dashboard.
 
 ### 3. Creating an Administrator Account
-- Click **Admin Login** in the app header and choose **Need an admin account? Create one** (or create an admin user directly from **Authentication > Users** in your Supabase dashboard).
-- Once logged in, the administrator can click **Add Player** to record new players and scores directly to the database.
+- For security, user self-registration is disabled in the app.
+- Administrators are created directly from the **Authentication > Users** tab in your [Supabase Dashboard](https://supabase.com/dashboard) (click **Add user** > **Create user** with an email and password).
+- Once created, administrators can sign in via **Admin Login** in the app using their email and password to add players and record scores.
 
 ---
 

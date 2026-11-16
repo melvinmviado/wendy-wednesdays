@@ -13,10 +13,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { signIn, signUp, isConfigured } = useAuth()
+  const { signIn, isConfigured } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
@@ -36,7 +35,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
     setLoading(true)
     try {
-      const res = isSignUp ? await signUp(email, password) : await signIn(email, password)
+      const res = await signIn(email, password)
 
       if (res.error) {
         setError(res.error.message)
@@ -80,7 +79,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           <div>
             <h3 className="text-lg font-bold text-white">Administrator Access</h3>
             <p className="text-xs text-slate-400">
-              {isSignUp ? 'Create administrator account' : 'Sign in to add/edit players'}
+              Sign in with admin credentials to manage players
             </p>
           </div>
         </div>
@@ -186,21 +185,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             disabled={loading}
             className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:scale-95 text-slate-950 font-bold text-sm transition cursor-pointer shadow-lg shadow-cyan-500/20 disabled:opacity-50"
           >
-            {loading ? 'Authenticating...' : isSignUp ? 'Sign Up as Admin' : 'Sign In as Admin'}
+            {loading ? 'Signing in...' : 'Sign In as Admin'}
           </button>
-
-          <div className="text-center pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp)
-                setError('')
-              }}
-              className="text-xs text-slate-400 hover:text-cyan-400 transition cursor-pointer"
-            >
-              {isSignUp ? 'Already have an admin account? Sign in' : 'Need an admin account? Create one'}
-            </button>
-          </div>
         </form>
       </div>
     </div>

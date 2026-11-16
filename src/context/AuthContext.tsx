@@ -9,7 +9,6 @@ interface AuthContextType {
   isLoading: boolean
   isConfigured: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -82,18 +81,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error }
   }
 
-  const signUp = async (email: string, password: string) => {
-    if (!isSupabaseConfigured) {
-      return signIn(email, password)
-    }
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-    return { error }
-  }
-
   const signOut = async () => {
     if (!isSupabaseConfigured) {
       localStorage.removeItem('demo_admin_logged_in')
@@ -114,7 +101,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         isConfigured: isSupabaseConfigured,
         signIn,
-        signUp,
         signOut,
       }}
     >
