@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Trophy,
   Search,
@@ -7,15 +7,26 @@ import {
   Sparkles,
   Flame,
   Calendar,
-  Users
+  Users,
+  ShieldCheck,
+  Lock,
+  LogOut,
+  Database,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react'
 import { PlayerScore } from './types/leaderboard'
 import { initialPlayers } from './data/leaderboardData'
 import { LeaderboardTable } from './components/LeaderboardTable'
 import { Podium } from './components/Podium'
 import { AddPlayerModal } from './components/AddPlayerModal'
+import { AdminLoginModal } from './components/AdminLoginModal'
+import { useAuth } from './context/AuthContext'
+import { supabase } from './lib/supabase'
 
 export default function App() {
+  const { user, isAdmin, signOut, isConfigured } = useAuth()
+
   const [players, setPlayers] = useState<PlayerScore[]>(() => {
     const saved = localStorage.getItem('wendy_leaderboard_players')
     if (saved) {
@@ -29,30 +40,93 @@ export default function App() {
   })
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [loadingDb, setLoadingDb] = useState(false)
+  const [dbError, setDbError] = useState<string | null>(null)
 
-  // Sync to local storage
-  const updatePlayers = (newPlayers: PlayerScore[]) => {
-    setPlayers(newPlayers)
-    localStorage.setItem('wendy_leaderboard_players', JSON.stringify(newPlayers))
-  }
+  // Fetch players from Supabase database
+  const fetchSupabasePlayers = useCallback(async () => {
+    if (!isConfigured) return
 
-  const handleAddPlayer = (newPlayerData: Omit<PlayerScore, 'id'>) => {
-    const newPlayer: PlayerScore = {
-      ...newPlayerData,
-      id: Date.now().toString(),
+    setLoadingDb(true)
+    setDbError(null)
+
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .order('total_points', { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      if (data && data.length > 0) {
+        const mapped: PlayerScore[] = data.map((item) => ({
+          id: item.id,
+          name: item.name,
+          weeksPlayed: item.weeks_played,
+          totalPoints: item.total_points,
+        }))
+        setPlayers(mapped)
+        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to fetch from database'
+      setDbError(msg)
+    } finally {
+      setLoadingDb(false)
     }
-    updatePlayers([...players, newPlayer])
+  }, [isConfigured])
+
+  // Load on mount and setup real-time subscription
+  useEffect(() => {
+    if (isConfigured) {
+      fetchSupabasePlayers()
+
+      // Subscribe to real-time changes
+      const channel = supabase
+        .channel('public:players')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'players' },
+          () => {
+            fetchSupabasePlayers()
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [isConfigured, fetchSupabasePlayers])
+
+  const handleAddPlayer = (newPlayer: PlayerScore) => {
+    const updated = [newPlayer, ...players]
+    setPlayers(updated)
+    localStorage.setItem('wendy_leaderboard_players', JSON.stringify(updated))
   }
 
   const handleResetData = () => {
-    if (window.confirm('Reset leaderboard to default initial player scores?')) {
-      updatePlayers(initialPlayers)
+    if (window.confirm('Reset leaderboard to default initial players?')) {
+      setPlayers(initialPlayers)
+      localStorage.setItem('wendy_leaderboard_players', JSON.stringify(initialPlayers))
       setSearchQuery('')
     }
   }
 
-  // Sorted list for stats & podium
+  // Handle clicking "Add Player" - requires admin
+  const handleOpenAddPlayer = () => {
+    if (!isAdmin) {
+      setIsAuthModalOpen(true)
+    } else {
+      setIsAddModalOpen(true)
+    }
+  }
+
+  // Sorted list for statistics & podium
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) {
@@ -81,7 +155,69 @@ export default function App() {
         <div className="absolute bottom-10 -right-40 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl" />
       </div>
 
-      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-8 sm:py-12 flex flex-col gap-6 sm:gap-8">
+      {/* Top Navbar / Admin Bar */}
+      <nav className="w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-3xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800">
+              <Database className={`w-3.5 h-3.5 ${isConfigured ? 'text-emerald-400' : 'text-amber-400'}`} />
+              <span className="font-medium text-slate-300">
+                {isConfigured ? 'Supabase Connected' : 'Demo Mode'}
+              </span>
+            </div>
+            {!isConfigured && (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="hidden sm:inline-block text-[11px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
+              >
+                Connect Database
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isAdmin ? (
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[11px] font-medium">
+                  <ShieldCheck className="w-3 h-3" />
+                  <span className="truncate max-w-[130px]">{user?.email || 'Admin'}</span>
+                </span>
+                <button
+                  onClick={() => signOut()}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition cursor-pointer"
+                  title="Sign out as administrator"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900/90 text-slate-300 hover:text-white transition cursor-pointer"
+              >
+                <Lock className="w-3 h-3 text-cyan-400" />
+                <span>Admin Login</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-10 flex flex-col gap-6 sm:gap-8">
+        {/* Supabase Error Alert if table missing or connection error */}
+        {dbError && (
+          <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-500/40 text-xs text-amber-200 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-amber-300">Database Notice: {dbError}</p>
+              <p className="text-[11px] text-amber-400/90 leading-relaxed">
+                Ensure you have created the <code className="bg-slate-900 px-1 py-0.5 rounded">players</code> table using <code className="bg-slate-900 px-1 py-0.5 rounded">supabase/schema.sql</code> in your Supabase SQL Editor.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header Section */}
         <header className="flex flex-col items-center text-center space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-950/40 text-amber-300 text-xs font-semibold tracking-wide shadow-sm">
@@ -94,7 +230,7 @@ export default function App() {
           </h1>
 
           <p className="text-slate-400 text-sm sm:text-base max-w-md">
-            Official season leaderboard ranked by total points. Updated weekly after each round.
+            Official season leaderboard ranked by total points. Powered by Supabase database & authentication.
           </p>
 
           {/* Quick Metrics Bar */}
@@ -162,22 +298,45 @@ export default function App() {
             )}
           </div>
 
+          {/* Add Player (Protected for Admins only) */}
           <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-slate-950 font-semibold text-xs sm:text-sm transition cursor-pointer shadow-md shadow-cyan-500/20 shrink-0"
-            title="Add Player"
+            onClick={handleOpenAddPlayer}
+            className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer shadow-md shrink-0 ${
+              isAdmin
+                ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20 active:scale-95'
+                : 'bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/80'
+            }`}
+            title={isAdmin ? 'Add New Player' : 'Admin Login required to add player'}
           >
-            <UserPlus className="w-4 h-4" />
+            {isAdmin ? (
+              <UserPlus className="w-4 h-4" />
+            ) : (
+              <Lock className="w-3.5 h-3.5 text-cyan-400" />
+            )}
             <span className="hidden sm:inline">Add Player</span>
           </button>
 
-          <button
-            onClick={handleResetData}
-            className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0"
-            title="Reset to default scores"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
+          {/* Refresh / Sync with Supabase */}
+          {isConfigured && (
+            <button
+              onClick={fetchSupabasePlayers}
+              disabled={loadingDb}
+              className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0 disabled:opacity-50"
+              title="Refresh from Supabase database"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingDb ? 'animate-spin text-cyan-400' : ''}`} />
+            </button>
+          )}
+
+          {!isConfigured && (
+            <button
+              onClick={handleResetData}
+              className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0"
+              title="Reset to default scores"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Mobile-First Season Leaderboard Table */}
@@ -199,17 +358,27 @@ export default function App() {
             </span>
           </div>
 
-          <div className="text-[11px] text-slate-600">
-            Hosted on Cloudflare Pages • Tailwind CSS
+          <div className="text-[11px] text-slate-500">
+            Cloudflare Pages • Supabase Database & Auth
           </div>
         </footer>
       </main>
 
-      {/* Add Player Modal */}
+      {/* Add Player Modal (Protected) */}
       <AddPlayerModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
         onAddPlayer={handleAddPlayer}
+        onRequireAuth={() => setIsAuthModalOpen(true)}
+      />
+
+      {/* Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={() => {
+          setIsAddModalOpen(true)
+        }}
       />
     </div>
   )

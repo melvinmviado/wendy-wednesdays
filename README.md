@@ -7,11 +7,38 @@ A modern, fast, and production-ready React starter designed to be deployed seaml
 - **React 19 & TypeScript**: Latest React features with full type safety.
 - **Vite 6**: Instant server start, blazing-fast HMR, and optimized production builds.
 - **Tailwind CSS v4**: Powered by `@tailwindcss/vite` with zero extra configuration.
-- **Lucide Icons**: Beautiful & consistent open-source icons.
+- **Supabase Database**: Cloud PostgreSQL storage for players and season scores with real-time updates.
+- **Supabase Auth & RLS**: Protected administration portal where only authenticated administrators can add new players.
+- **Mobile-First Leaderboard**: Clean 4-column display (Rank, Player Name, Weeks Played, Total Points) with distinct Gold, Silver, and Bronze badges for the top three.
 - **Cloudflare Pages Ready**:
   - `public/_redirects` ensures SPA client-side routing works on full page reloads.
   - `public/_headers` adds basic security and caching policies.
   - Ready for automatic Git builds or direct Wrangler CLI deployments.
+
+---
+
+## ⚡ Supabase Setup (Database & Admin Auth)
+
+### 1. Run Database Schema Migration
+Open your project's **SQL Editor** in the [Supabase Dashboard](https://supabase.com/dashboard) and run the contents of [`supabase/schema.sql`](file:///d:/Repositories/wendy-wednesdays/supabase/schema.sql):
+- Creates the `players` table with columns: `id`, `name`, `weeks_played`, `total_points`, `created_at`.
+- Enables **Row Level Security (RLS)**:
+  - **Public Read (`SELECT`)**: Anyone can view the season leaderboard.
+  - **Admin Write (`INSERT`, `UPDATE`, `DELETE`)**: Only authenticated users (`auth.role() = 'authenticated'`) can add or edit player records.
+- Seeds initial sample players.
+
+### 2. Configure Environment Variables
+Create a `.env` file in the project root (see [`.env.example`](file:///d:/Repositories/wendy-wednesdays/.env.example)):
+```bash
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
+```
+
+For **Cloudflare Pages**, also add these under **Settings > Environment variables** in your Cloudflare dashboard.
+
+### 3. Creating an Administrator Account
+- Click **Admin Login** in the app header and choose **Need an admin account? Create one** (or create an admin user directly from **Authentication > Users** in your Supabase dashboard).
+- Once logged in, the administrator can click **Add Player** to record new players and scores directly to the database.
 
 ---
 
