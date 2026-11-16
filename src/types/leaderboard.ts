@@ -11,12 +11,14 @@ export interface WeeklyScoreRecord {
   weekNumber: number
   attended: boolean
   courtNumber?: number
-  finishOrder?: number
+  finishOrder?: number // 1 for 1st place team (winners), 2 for 2nd place team (runners-up)
   points: number
 }
 
-export interface CourtSlot {
-  finishOrder: number // 1 (1st), 2 (2nd), 3 (3rd), 4 (4th)
+export interface CourtPlayerSlot {
+  slotId: string // Unique identifier e.g. "c1-t1-p1"
+  teamPlace: 1 | 2 // 1 for 1st place team, 2 for 2nd place team
+  playerIndex: 1 | 2 // 1 for Partner 1, 2 for Partner 2
   playerId: string | null
   playerName: string | null
   points: number
@@ -24,5 +26,7 @@ export interface CourtSlot {
 
 export interface CourtData {
   courtNumber: number
-  slots: CourtSlot[]
+  firstPlacePoints: number
+  secondPlacePoints: number
+  slots: CourtPlayerSlot[] // Exactly 4 player slots (2 in 1st place, 2 in 2nd place)
 }

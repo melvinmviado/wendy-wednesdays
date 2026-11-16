@@ -17,7 +17,8 @@ import {
   X,
   RotateCcw,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Medal
 } from 'lucide-react'
 import { PlayerScore, CourtData, WeeklyScoreRecord } from '../types/leaderboard'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
@@ -31,10 +32,13 @@ interface WeeklyEntryScreenProps {
 
 const WEEKS = [1, 2, 3, 4, 5, 6, 7, 8]
 
-// Default point matrix based on Court Number & Finishing Position (1st, 2nd, 3rd, 4th)
-const getDefaultPoints = (courtNum: number, finishOrder: number): number => {
-  const baseCourt = Math.max(10, 100 - (courtNum - 1) * 15)
-  return Math.max(0, baseCourt - (finishOrder - 1) * 15)
+// Default point matrix for Doubles (2 teams of 2 players per court):
+// Both players on the 1st place team share the win points.
+// Both players on the 2nd place team share the runner-up points.
+const getCourtDefaultPoints = (courtNum: number) => {
+  const first = Math.max(25, 100 - (courtNum - 1) * 15)
+  const second = Math.max(10, first - 25)
+  return { first, second }
 }
 
 export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
@@ -52,18 +56,59 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
   const [newPlayerName, setNewPlayerName] = useState('')
   const [searchFilter, setSearchFilter] = useState('')
 
-  // Stage 2: Court Data (Array of courts, each with 4 slots for finishing order 1-4)
+  // Stage 2: Court Data (Each court has 2 teams of 2 players: 1st place team & 2nd place team)
   const [courts, setCourts] = useState<CourtData[]>([])
-  const [selectedSlotTarget, setSelectedSlotTarget] = useState<{
-    courtNumber: number
-    finishOrder: number
-  } | null>(null)
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
 
   // Status & Feedback
   const [saving, setSaving] = useState(false)
   const [loadingWeek, setLoadingWeek] = useState(false)
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  // Initialize a blank CourtData with 4 slots (2 in 1st place, 2 in 2nd place)
+  const buildEmptyCourt = useCallback((courtNum: number): CourtData => {
+    const { first, second } = getCourtDefaultPoints(courtNum)
+    return {
+      courtNumber: courtNum,
+      firstPlacePoints: first,
+      secondPlacePoints: second,
+      slots: [
+        {
+          slotId: `c${courtNum}-t1-p1`,
+          teamPlace: 1,
+          playerIndex: 1,
+          playerId: null,
+          playerName: null,
+          points: first,
+        },
+        {
+          slotId: `c${courtNum}-t1-p2`,
+          teamPlace: 1,
+          playerIndex: 2,
+          playerId: null,
+          playerName: null,
+          points: first,
+        },
+        {
+          slotId: `c${courtNum}-t2-p1`,
+          teamPlace: 2,
+          playerIndex: 1,
+          playerId: null,
+          playerName: null,
+          points: second,
+        },
+        {
+          slotId: `c${courtNum}-t2-p2`,
+          teamPlace: 2,
+          playerIndex: 2,
+          playerId: null,
+          playerName: null,
+          points: second,
+        },
+      ],
+    }
+  }, [])
 
   // Load existing week entries from Supabase or localStorage
   const loadWeekData = useCallback(async (week: number) => {
@@ -106,26 +151,56 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
 
         setCheckedInPlayerIds(attendedIds)
 
-        // Initialize courts if records exist
+        // Group assigned players by court
         const courtCount = Math.max(1, Math.ceil(attendedIds.size / 4))
-        const newCourts: CourtData[] = Array.from({ length: courtCount }, (_, i) => {
+        const newCourts: CourtData[] = []
+
+        for (let i = 0; i < courtCount; i++) {
           const courtNum = i + 1
-          return {
-            courtNumber: courtNum,
-            slots: [1, 2, 3, 4].map((pos) => {
-              const match = assignedRecords.find(
-                (r) => r.courtNumber === courtNum && r.finishOrder === pos
-              )
-              const player = match ? roster.find((p) => p.id === match.playerId) : null
-              return {
-                finishOrder: pos,
-                playerId: match ? match.playerId : null,
-                playerName: player ? player.name : null,
-                points: match ? match.points : getDefaultPoints(courtNum, pos),
-              }
-            }),
+          const court = buildEmptyCourt(courtNum)
+          const courtRecords = assignedRecords.filter((r) => r.courtNumber === courtNum)
+
+          // 1st place team records (finish_order === 1)
+          const firstPlaceRecords = courtRecords.filter((r) => r.finishOrder === 1)
+          if (firstPlaceRecords.length > 0) {
+            court.firstPlacePoints = firstPlaceRecords[0].points
+            court.slots[0].points = firstPlaceRecords[0].points
+            court.slots[1].points = firstPlaceRecords[0].points
+
+            if (firstPlaceRecords[0]) {
+              const p = roster.find((x) => x.id === firstPlaceRecords[0].playerId)
+              court.slots[0].playerId = firstPlaceRecords[0].playerId
+              court.slots[0].playerName = p ? p.name : null
+            }
+            if (firstPlaceRecords[1]) {
+              const p = roster.find((x) => x.id === firstPlaceRecords[1].playerId)
+              court.slots[1].playerId = firstPlaceRecords[1].playerId
+              court.slots[1].playerName = p ? p.name : null
+            }
           }
-        })
+
+          // 2nd place team records (finish_order === 2)
+          const secondPlaceRecords = courtRecords.filter((r) => r.finishOrder === 2)
+          if (secondPlaceRecords.length > 0) {
+            court.secondPlacePoints = secondPlaceRecords[0].points
+            court.slots[2].points = secondPlaceRecords[0].points
+            court.slots[3].points = secondPlaceRecords[0].points
+
+            if (secondPlaceRecords[0]) {
+              const p = roster.find((x) => x.id === secondPlaceRecords[0].playerId)
+              court.slots[2].playerId = secondPlaceRecords[0].playerId
+              court.slots[2].playerName = p ? p.name : null
+            }
+            if (secondPlaceRecords[1]) {
+              const p = roster.find((x) => x.id === secondPlaceRecords[1].playerId)
+              court.slots[3].playerId = secondPlaceRecords[1].playerId
+              court.slots[3].playerName = p ? p.name : null
+            }
+          }
+
+          newCourts.push(court)
+        }
+
         setCourts(newCourts)
       } else {
         // Demo mode from localStorage
@@ -153,24 +228,52 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
         setCheckedInPlayerIds(attendedIds)
 
         const courtCount = Math.max(1, Math.ceil(attendedIds.size / 4))
-        const newCourts: CourtData[] = Array.from({ length: courtCount }, (_, i) => {
+        const newCourts: CourtData[] = []
+
+        for (let i = 0; i < courtCount; i++) {
           const courtNum = i + 1
-          return {
-            courtNumber: courtNum,
-            slots: [1, 2, 3, 4].map((pos) => {
-              const match = assignedRecords.find(
-                (r) => r.courtNumber === courtNum && r.finishOrder === pos
-              )
-              const player = match ? roster.find((p) => p.id === match.playerId) : null
-              return {
-                finishOrder: pos,
-                playerId: match ? match.playerId : null,
-                playerName: player ? player.name : null,
-                points: match ? match.points : getDefaultPoints(courtNum, pos),
-              }
-            }),
+          const court = buildEmptyCourt(courtNum)
+          const courtRecords = assignedRecords.filter((r) => r.courtNumber === courtNum)
+
+          const firstPlaceRecords = courtRecords.filter((r) => r.finishOrder === 1)
+          if (firstPlaceRecords.length > 0) {
+            court.firstPlacePoints = firstPlaceRecords[0].points
+            court.slots[0].points = firstPlaceRecords[0].points
+            court.slots[1].points = firstPlaceRecords[0].points
+
+            if (firstPlaceRecords[0]) {
+              const p = roster.find((x) => x.id === firstPlaceRecords[0].playerId)
+              court.slots[0].playerId = firstPlaceRecords[0].playerId
+              court.slots[0].playerName = p ? p.name : null
+            }
+            if (firstPlaceRecords[1]) {
+              const p = roster.find((x) => x.id === firstPlaceRecords[1].playerId)
+              court.slots[1].playerId = firstPlaceRecords[1].playerId
+              court.slots[1].playerName = p ? p.name : null
+            }
           }
-        })
+
+          const secondPlaceRecords = courtRecords.filter((r) => r.finishOrder === 2)
+          if (secondPlaceRecords.length > 0) {
+            court.secondPlacePoints = secondPlaceRecords[0].points
+            court.slots[2].points = secondPlaceRecords[0].points
+            court.slots[3].points = secondPlaceRecords[0].points
+
+            if (secondPlaceRecords[0]) {
+              const p = roster.find((x) => x.id === secondPlaceRecords[0].playerId)
+              court.slots[2].playerId = secondPlaceRecords[0].playerId
+              court.slots[2].playerName = p ? p.name : null
+            }
+            if (secondPlaceRecords[1]) {
+              const p = roster.find((x) => x.id === secondPlaceRecords[1].playerId)
+              court.slots[3].playerId = secondPlaceRecords[1].playerId
+              court.slots[3].playerName = p ? p.name : null
+            }
+          }
+
+          newCourts.push(court)
+        }
+
         setCourts(newCourts)
       }
     } catch (err: unknown) {
@@ -179,7 +282,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
     } finally {
       setLoadingWeek(false)
     }
-  }, [roster])
+  }, [roster, buildEmptyCourt])
 
   // Reload when active week changes
   useEffect(() => {
@@ -251,7 +354,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
     }
   }
 
-  // Transition from Stage 1 to Stage 2 (build required courts)
+  // Transition from Stage 1 to Stage 2 (build required courts: 4 players per court)
   const handleProceedToCourts = () => {
     if (checkedInPlayerIds.size === 0) {
       setErrorMsg('Please check in at least 1 player before assigning courts.')
@@ -265,19 +368,22 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
       return Array.from({ length: courtCount }, (_, i) => {
         const courtNum = i + 1
         const existingCourt = prevCourts.find((c) => c.courtNumber === courtNum)
+        const emptyCourt = buildEmptyCourt(courtNum)
+
+        if (!existingCourt) return emptyCourt
 
         return {
-          courtNumber: courtNum,
-          slots: [1, 2, 3, 4].map((finishOrder) => {
-            const existingSlot = existingCourt?.slots.find((s) => s.finishOrder === finishOrder)
-            const isValidPlayer =
+          ...existingCourt,
+          slots: emptyCourt.slots.map((s, idx) => {
+            const existingSlot = existingCourt.slots[idx]
+            const isValid =
               existingSlot?.playerId && checkedInPlayerIds.has(existingSlot.playerId)
 
             return {
-              finishOrder,
-              playerId: isValidPlayer ? existingSlot.playerId : null,
-              playerName: isValidPlayer ? existingSlot.playerName : null,
-              points: existingSlot ? existingSlot.points : getDefaultPoints(courtNum, finishOrder),
+              ...s,
+              playerId: isValid ? existingSlot.playerId : null,
+              playerName: isValid ? existingSlot.playerName : null,
+              points: existingSlot ? existingSlot.points : s.points,
             }
           }),
         }
@@ -306,12 +412,14 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
     )
   }, [roster, checkedInPlayerIds, assignedPlayerIds])
 
-  // Next available court slot in finishing order
+  // Next available court slot in finishing order:
+  // Court 1: 1st Place Team (Partner 1) -> 1st Place Team (Partner 2) -> 2nd Place Team (Partner 1) -> 2nd Place Team (Partner 2)
+  // Court 2: ...
   const nextEmptySlot = useMemo(() => {
     for (const court of courts) {
       for (const slot of court.slots) {
         if (!slot.playerId) {
-          return { courtNumber: court.courtNumber, finishOrder: slot.finishOrder }
+          return { courtNumber: court.courtNumber, slotId: slot.slotId }
         }
       }
     }
@@ -321,83 +429,81 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
   // Tap name in top bench dock to place in finishing order
   const handleBenchPlayerTap = (player: PlayerScore) => {
     // If user clicked a specific slot target, fill that slot
-    let target = selectedSlotTarget
-    if (!target || !isSlotEmpty(target.courtNumber, target.finishOrder)) {
+    let targetSlotId = selectedSlotId
+    if (!targetSlotId || !isSlotEmptyById(targetSlotId)) {
       // Otherwise fill next available slot in finishing order
-      target = nextEmptySlot
+      targetSlotId = nextEmptySlot ? nextEmptySlot.slotId : null
     }
 
-    if (!target) {
+    if (!targetSlotId) {
       setErrorMsg('All court slots are currently filled! Unassign a player to place another.')
       return
     }
 
     setCourts((prev) =>
-      prev.map((court) => {
-        if (court.courtNumber !== target!.courtNumber) return court
-        return {
-          ...court,
-          slots: court.slots.map((slot) => {
-            if (slot.finishOrder !== target!.finishOrder) return slot
-            return {
-              ...slot,
-              playerId: player.id,
-              playerName: player.name,
-            }
-          }),
-        }
-      })
+      prev.map((court) => ({
+        ...court,
+        slots: court.slots.map((slot) => {
+          if (slot.slotId !== targetSlotId) return slot
+          return {
+            ...slot,
+            playerId: player.id,
+            playerName: player.name,
+          }
+        }),
+      }))
     )
 
     // Clear target slot selection after filling
-    setSelectedSlotTarget(null)
+    setSelectedSlotId(null)
     setErrorMsg(null)
   }
 
-  const isSlotEmpty = (courtNum: number, finishOrder: number) => {
-    const court = courts.find((c) => c.courtNumber === courtNum)
-    const slot = court?.slots.find((s) => s.finishOrder === finishOrder)
-    return slot && !slot.playerId
+  const isSlotEmptyById = (slotId: string) => {
+    for (const c of courts) {
+      const s = c.slots.find((x) => x.slotId === slotId)
+      if (s) return !s.playerId
+    }
+    return false
   }
 
   // Remove player from court slot back to bench dock
-  const handleRemoveFromSlot = (courtNum: number, finishOrder: number) => {
+  const handleRemoveFromSlot = (slotId: string) => {
     setCourts((prev) =>
-      prev.map((court) => {
-        if (court.courtNumber !== courtNum) return court
-        return {
-          ...court,
-          slots: court.slots.map((slot) => {
-            if (slot.finishOrder !== finishOrder) return slot
-            return {
-              ...slot,
-              playerId: null,
-              playerName: null,
-            }
-          }),
-        }
-      })
+      prev.map((court) => ({
+        ...court,
+        slots: court.slots.map((slot) => {
+          if (slot.slotId !== slotId) return slot
+          return {
+            ...slot,
+            playerId: null,
+            playerName: null,
+          }
+        }),
+      }))
     )
   }
 
-  // Adjust points on a court slot
-  const handleAdjustSlotPoints = (
-    courtNum: number,
-    finishOrder: number,
-    delta: number
-  ) => {
+  // Adjust points for an entire Team (updating both players who share that place)
+  const handleAdjustTeamPoints = (courtNum: number, teamPlace: 1 | 2, delta: number) => {
     setCourts((prev) =>
       prev.map((court) => {
         if (court.courtNumber !== courtNum) return court
-        return {
-          ...court,
-          slots: court.slots.map((slot) => {
-            if (slot.finishOrder !== finishOrder) return slot
-            return {
-              ...slot,
-              points: Math.max(0, slot.points + delta),
-            }
-          }),
+
+        if (teamPlace === 1) {
+          const newPts = Math.max(0, court.firstPlacePoints + delta)
+          return {
+            ...court,
+            firstPlacePoints: newPts,
+            slots: court.slots.map((s) => (s.teamPlace === 1 ? { ...s, points: newPts } : s)),
+          }
+        } else {
+          const newPts = Math.max(0, court.secondPlacePoints + delta)
+          return {
+            ...court,
+            secondPlacePoints: newPts,
+            slots: court.slots.map((s) => (s.teamPlace === 2 ? { ...s, points: newPts } : s)),
+          }
         }
       })
     )
@@ -416,7 +522,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
           })),
         }))
       )
-      setSelectedSlotTarget(null)
+      setSelectedSlotId(null)
     }
   }
 
@@ -427,7 +533,6 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
     setSaveSuccessMsg(null)
 
     try {
-      // Gather records to upsert
       const recordsToUpsert: {
         player_id: string
         week_number: number
@@ -437,7 +542,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
         points: number
       }[] = []
 
-      // 1. All players placed on courts
+      // 1. All players placed on courts (two players per court share finish_order: 1, two share finish_order: 2)
       courts.forEach((c) => {
         c.slots.forEach((s) => {
           if (s.playerId) {
@@ -446,14 +551,14 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
               week_number: selectedWeek,
               attended: true,
               court_number: c.courtNumber,
-              finish_order: s.finishOrder,
-              points: s.points,
+              finish_order: s.teamPlace, // 1 for 1st place team, 2 for 2nd place team
+              points: s.points, // Shared points!
             })
           }
         })
       })
 
-      // 2. Any checked-in bench players who weren't assigned to a court (record attendance with 0 points)
+      // 2. Any checked-in bench players who weren't assigned to a court
       unassignedBenchPlayers.forEach((p) => {
         recordsToUpsert.push({
           player_id: p.id,
@@ -465,7 +570,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
         })
       })
 
-      // 3. Any roster players who were NOT checked in (marked attended: false)
+      // 3. Any roster players who were NOT checked in
       roster.forEach((p) => {
         if (!checkedInPlayerIds.has(p.id)) {
           recordsToUpsert.push({
@@ -486,7 +591,6 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
 
         if (upsertError) throw upsertError
 
-        // Database computes the leaderboard via view / triggers!
         onLeaderboardUpdated()
       } else {
         // Demo mode: local storage sync
@@ -501,7 +605,6 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
         }))
         localStorage.setItem(storedKey, JSON.stringify(localRecords))
 
-        // Aggregate across all weeks for local demo
         const allLocalWeeklyScores: WeeklyScoreRecord[] = []
         for (let w = 1; w <= 8; w++) {
           const wKey = `wendy_weekly_scores_w${w}`
@@ -532,10 +635,10 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
       }
 
       setSaveSuccessMsg(
-        `Week ${selectedWeek} saved! Bulk upserted ${recordsToUpsert.filter((r) => r.attended).length} checked players across ${courts.length} courts. Leaderboard recomputed.`
+        `Week ${selectedWeek} saved! Bulk upserted ${recordsToUpsert.filter((r) => r.attended).length} players across ${courts.length} courts. Leaderboard recomputed.`
       )
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to save court assignments'
+      const msg = err instanceof Error ? err.message : 'Failed to save court results'
       setErrorMsg(msg)
     } finally {
       setSaving(false)
@@ -568,7 +671,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
 
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 rounded-full bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-bold tracking-wide">
-            Court Cards Entry
+            Doubles Court Cards (2 Teams / Court)
           </span>
         </div>
       </div>
@@ -703,7 +806,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
               <div className="flex items-center gap-1.5 text-zinc-300 font-bold">
                 <Layers className="w-4 h-4 text-white" />
                 <span>
-                  <strong className="text-red-400 font-mono text-sm">{courtsRequired}</strong> Courts Needed
+                  <strong className="text-red-400 font-mono text-sm">{courtsRequired}</strong> Courts (4 players/court)
                 </span>
               </div>
             </div>
@@ -864,7 +967,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
             </div>
 
             <p className="text-[11px] text-zinc-400 leading-snug">
-              Tap names below in finishing order (1st, 2nd, 3rd, 4th) to place onto courts.
+              Tap names below in finishing order: Winning team partners (1st place) then Runner-up partners (2nd place).
             </p>
 
             {/* Bench Player Pills */}
@@ -880,7 +983,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                     key={player.id}
                     onClick={() => handleBenchPlayerTap(player)}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-red-600/90 hover:text-white border border-zinc-700/80 hover:border-red-500 active:scale-95 transition-all cursor-pointer shadow-sm group select-none"
-                    title={`Tap to assign ${player.name} to next finishing slot`}
+                    title={`Tap to place ${player.name} onto next court slot`}
                   >
                     <div className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 group-hover:bg-black group-hover:text-white flex items-center justify-center text-[10px] font-bold">
                       {player.name.charAt(0)}
@@ -896,42 +999,60 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
           </section>
 
           {/* ======================================================= */}
-          {/* COURT CARDS (4 PLAYERS PER COURT)                        */}
+          {/* COURT CARDS (2 TEAMS OF 2 PLAYERS PER COURT)             */}
           {/* ======================================================= */}
           <section className="flex flex-col gap-5">
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5 text-red-500" />
-                <span>Rendered Courts ({courts.length} Courts • 4 per court)</span>
+                <span>Rendered Courts ({courts.length} Courts • 2 Teams / 4 Players)</span>
               </span>
               <span className="text-xs font-mono text-zinc-500">
                 {assignedCount} / {checkedInCount} assigned
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {courts.map((court) => {
                 const filledCount = court.slots.filter((s) => s.playerId).length
                 const isCourtFull = filledCount === 4
+                const isTopCourt = court.courtNumber === 1
+
+                const firstPlaceSlots = court.slots.filter((s) => s.teamPlace === 1)
+                const secondPlaceSlots = court.slots.filter((s) => s.teamPlace === 2)
 
                 return (
                   <div
                     key={court.courtNumber}
-                    className="rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-xl overflow-hidden flex flex-col"
+                    className="rounded-2xl border border-zinc-800 bg-zinc-950/95 shadow-2xl overflow-hidden flex flex-col"
                   >
-                    {/* Court Header */}
+                    {/* Court Card Header */}
                     <div className="p-3.5 bg-black border-b border-zinc-800 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-red-950/60 border border-red-500/40 text-red-400 flex items-center justify-center font-black text-xs">
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs border ${
+                            isTopCourt
+                              ? 'bg-amber-400 text-amber-950 border-amber-300'
+                              : 'bg-red-950/60 border-red-500/40 text-red-400'
+                          }`}
+                        >
                           C{court.courtNumber}
                         </div>
-                        <h4 className="font-black text-sm text-white tracking-wide">
-                          Court {court.courtNumber}
-                        </h4>
+                        <div>
+                          <h4 className="font-black text-sm text-white tracking-wide flex items-center gap-1.5">
+                            <span>Court {court.courtNumber}</span>
+                            {isTopCourt && (
+                              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                                Top Court
+                              </span>
+                            )}
+                          </h4>
+                          <span className="text-[10px] text-zinc-500">2 Teams of 2 Players</span>
+                        </div>
                       </div>
 
                       <span
-                        className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                        className={`text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
                           isCourtFull
                             ? 'bg-zinc-900 border-white/20 text-white'
                             : 'bg-red-950/60 border-red-500/40 text-red-300'
@@ -941,138 +1062,234 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                       </span>
                     </div>
 
-                    {/* 4 Finishing Order Slots */}
-                    <div className="p-3 flex flex-col gap-2">
-                      {court.slots.map((slot) => {
-                        const isFilled = Boolean(slot.playerId)
-                        const isTargeted =
-                          selectedSlotTarget?.courtNumber === court.courtNumber &&
-                          selectedSlotTarget?.finishOrder === slot.finishOrder
-                        const isNext =
-                          nextEmptySlot?.courtNumber === court.courtNumber &&
-                          nextEmptySlot?.finishOrder === slot.finishOrder
+                    <div className="p-3.5 flex flex-col gap-4">
+                      {/* ================================================= */}
+                      {/* TEAM 1: 1ST PLACE WINNING TEAM (2 PLAYERS)        */}
+                      {/* ================================================= */}
+                      <div className="rounded-xl border border-amber-500/40 bg-gradient-to-b from-amber-950/20 to-black/80 p-3 flex flex-col gap-2.5 shadow-sm">
+                        {/* Team Header & Shared Points Stepper */}
+                        <div className="flex items-center justify-between pb-2 border-b border-amber-500/20 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
+                            <span className="font-black text-amber-300 uppercase tracking-wider text-[11px]">
+                              1st Place Team (Winners)
+                            </span>
+                          </div>
 
-                        // Finishing Place Badges (1st Gold, 2nd Silver, 3rd Bronze, 4th Slate)
-                        let badgeColor = 'bg-zinc-800 text-zinc-300 border-zinc-700'
-                        let placeLabel = '4th'
-                        if (slot.finishOrder === 1) {
-                          badgeColor = 'bg-amber-400 text-amber-950 border-amber-300 font-black'
-                          placeLabel = '1st'
-                        } else if (slot.finishOrder === 2) {
-                          badgeColor = 'bg-zinc-200 text-zinc-900 border-white font-black'
-                          placeLabel = '2nd'
-                        } else if (slot.finishOrder === 3) {
-                          badgeColor = 'bg-amber-700 text-amber-100 border-amber-600 font-black'
-                          placeLabel = '3rd'
-                        }
-
-                        return (
-                          <div
-                            key={slot.finishOrder}
-                            onClick={() => {
-                              if (!isFilled) {
-                                setSelectedSlotTarget({
-                                  courtNumber: court.courtNumber,
-                                  finishOrder: slot.finishOrder,
-                                })
-                              }
-                            }}
-                            className={`p-2.5 rounded-xl border transition-all duration-150 flex items-center justify-between gap-2.5 ${
-                              isFilled
-                                ? 'bg-zinc-900/90 border-zinc-800'
-                                : isTargeted
-                                ? 'bg-red-950/50 border-red-500 ring-2 ring-red-500/40 cursor-pointer animate-pulse'
-                                : isNext
-                                ? 'bg-black border-red-500/50 border-dashed cursor-pointer hover:border-red-400'
-                                : 'bg-black/50 border-zinc-850 border-dashed cursor-pointer hover:border-zinc-700'
-                            }`}
-                          >
-                            {/* Left: Finishing Order Place & Player Name */}
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              {/* Place Badge */}
-                              <div
-                                className={`w-8 h-7 rounded-lg flex items-center justify-center text-xs border shrink-0 ${badgeColor}`}
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-zinc-400 font-medium">Both share:</span>
+                            <div className="flex items-center gap-0.5 bg-black border border-amber-500/40 rounded-lg p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleAdjustTeamPoints(court.courtNumber, 1, -5)}
+                                className="w-5 h-5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs cursor-pointer"
+                                title="Minus 5 points for both 1st place players"
                               >
-                                {placeLabel}
-                              </div>
+                                <Minus className="w-3 h-3" />
+                              </button>
 
-                              {isFilled ? (
-                                <div className="truncate flex-1">
-                                  <span className="font-bold text-sm text-white truncate block">
-                                    {slot.playerName}
-                                  </span>
-                                  <span className="text-[10px] text-zinc-400 font-mono">
-                                    Court {court.courtNumber} • Place {slot.finishOrder}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="truncate flex-1">
-                                  <span
-                                    className={`text-xs font-semibold ${
-                                      isTargeted || isNext ? 'text-red-400 font-bold' : 'text-zinc-500'
-                                    }`}
-                                  >
-                                    {isTargeted
-                                      ? 'Selected Target (Tap Bench Player)'
-                                      : isNext
-                                      ? 'Next in Order (Tap Bench Player)'
-                                      : `Empty (${placeLabel} Place)`}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                              <span className="w-12 text-center font-mono font-black text-xs text-amber-300">
+                                {court.firstPlacePoints} pts
+                              </span>
 
-                            {/* Right: Point Stepper & Unassign Button */}
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {/* Points Display / Stepper */}
-                              <div className="flex items-center gap-0.5 bg-black border border-zinc-800 rounded-lg p-0.5">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleAdjustSlotPoints(court.courtNumber, slot.finishOrder, -5)
-                                  }}
-                                  className="w-5 h-5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs cursor-pointer"
-                                  title="Minus 5 points"
-                                >
-                                  <Minus className="w-3 h-3" />
-                                </button>
-
-                                <span className="w-10 text-center font-mono font-bold text-xs text-red-400">
-                                  {slot.points}
-                                </span>
-
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleAdjustSlotPoints(court.courtNumber, slot.finishOrder, 5)
-                                  }}
-                                  className="w-5 h-5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs cursor-pointer"
-                                  title="Add 5 points"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                              </div>
-
-                              {/* Unassign button if filled */}
-                              {isFilled && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleRemoveFromSlot(court.courtNumber, slot.finishOrder)
-                                  }}
-                                  className="w-6 h-6 rounded-lg bg-zinc-900 hover:bg-red-950 text-zinc-400 hover:text-red-400 border border-zinc-800 flex items-center justify-center transition cursor-pointer"
-                                  title="Remove back to bench dock"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleAdjustTeamPoints(court.courtNumber, 1, 5)}
+                                className="w-5 h-5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs cursor-pointer"
+                                title="Add 5 points for both 1st place players"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
                             </div>
                           </div>
-                        )
-                      })}
+                        </div>
+
+                        {/* 2 Player Slots for 1st Place Team */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {firstPlaceSlots.map((slot) => {
+                            const isFilled = Boolean(slot.playerId)
+                            const isTargeted = selectedSlotId === slot.slotId
+                            const isNext = nextEmptySlot?.slotId === slot.slotId
+
+                            return (
+                              <div
+                                key={slot.slotId}
+                                onClick={() => {
+                                  if (!isFilled) setSelectedSlotId(slot.slotId)
+                                }}
+                                className={`p-2.5 rounded-xl border transition-all duration-150 flex items-center justify-between gap-2 ${
+                                  isFilled
+                                    ? 'bg-zinc-900/90 border-amber-500/30'
+                                    : isTargeted
+                                    ? 'bg-amber-950/50 border-amber-400 ring-2 ring-amber-400/50 cursor-pointer animate-pulse'
+                                    : isNext
+                                    ? 'bg-black border-amber-500/50 border-dashed cursor-pointer hover:border-amber-400'
+                                    : 'bg-black/50 border-zinc-800 border-dashed cursor-pointer hover:border-zinc-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <div className="w-6 h-6 rounded-md bg-amber-400 text-amber-950 font-black text-[11px] flex items-center justify-center shrink-0">
+                                    1st
+                                  </div>
+
+                                  {isFilled ? (
+                                    <div className="truncate flex-1">
+                                      <span className="font-bold text-xs text-white truncate block">
+                                        {slot.playerName}
+                                      </span>
+                                      <span className="text-[10px] text-amber-400/80 font-mono">
+                                        Partner {slot.playerIndex} • {slot.points} pts
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="truncate flex-1">
+                                      <span
+                                        className={`text-xs font-semibold ${
+                                          isTargeted || isNext ? 'text-amber-300 font-bold' : 'text-zinc-500'
+                                        }`}
+                                      >
+                                        {isTargeted
+                                          ? 'Selected Target'
+                                          : isNext
+                                          ? 'Next: 1st Place'
+                                          : `Partner ${slot.playerIndex}`}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {isFilled && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleRemoveFromSlot(slot.slotId)
+                                    }}
+                                    className="w-5 h-5 rounded-md bg-zinc-800 hover:bg-red-950 text-zinc-400 hover:text-red-400 border border-zinc-700 flex items-center justify-center transition cursor-pointer shrink-0"
+                                    title="Unassign player back to bench"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* ================================================= */}
+                      {/* TEAM 2: 2ND PLACE RUNNER-UP TEAM (2 PLAYERS)      */}
+                      {/* ================================================= */}
+                      <div className="rounded-xl border border-zinc-700/80 bg-gradient-to-b from-zinc-900/60 to-black/80 p-3 flex flex-col gap-2.5 shadow-sm">
+                        {/* Team Header & Shared Points Stepper */}
+                        <div className="flex items-center justify-between pb-2 border-b border-zinc-800 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <Medal className="w-4 h-4 text-zinc-300 shrink-0" />
+                            <span className="font-black text-zinc-200 uppercase tracking-wider text-[11px]">
+                              2nd Place Team (Runners-Up)
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-zinc-400 font-medium">Both share:</span>
+                            <div className="flex items-center gap-0.5 bg-black border border-zinc-700 rounded-lg p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleAdjustTeamPoints(court.courtNumber, 2, -5)}
+                                className="w-5 h-5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs cursor-pointer"
+                                title="Minus 5 points for both 2nd place players"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+
+                              <span className="w-12 text-center font-mono font-black text-xs text-white">
+                                {court.secondPlacePoints} pts
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => handleAdjustTeamPoints(court.courtNumber, 2, 5)}
+                                className="w-5 h-5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs cursor-pointer"
+                                title="Add 5 points for both 2nd place players"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2 Player Slots for 2nd Place Team */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {secondPlaceSlots.map((slot) => {
+                            const isFilled = Boolean(slot.playerId)
+                            const isTargeted = selectedSlotId === slot.slotId
+                            const isNext = nextEmptySlot?.slotId === slot.slotId
+
+                            return (
+                              <div
+                                key={slot.slotId}
+                                onClick={() => {
+                                  if (!isFilled) setSelectedSlotId(slot.slotId)
+                                }}
+                                className={`p-2.5 rounded-xl border transition-all duration-150 flex items-center justify-between gap-2 ${
+                                  isFilled
+                                    ? 'bg-zinc-900/90 border-zinc-700'
+                                    : isTargeted
+                                    ? 'bg-red-950/50 border-red-500 ring-2 ring-red-500/40 cursor-pointer animate-pulse'
+                                    : isNext
+                                    ? 'bg-black border-red-500/50 border-dashed cursor-pointer hover:border-red-400'
+                                    : 'bg-black/50 border-zinc-800 border-dashed cursor-pointer hover:border-zinc-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <div className="w-6 h-6 rounded-md bg-zinc-200 text-zinc-900 font-black text-[11px] flex items-center justify-center shrink-0">
+                                    2nd
+                                  </div>
+
+                                  {isFilled ? (
+                                    <div className="truncate flex-1">
+                                      <span className="font-bold text-xs text-white truncate block">
+                                        {slot.playerName}
+                                      </span>
+                                      <span className="text-[10px] text-zinc-400 font-mono">
+                                        Partner {slot.playerIndex} • {slot.points} pts
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="truncate flex-1">
+                                      <span
+                                        className={`text-xs font-semibold ${
+                                          isTargeted || isNext ? 'text-red-400 font-bold' : 'text-zinc-500'
+                                        }`}
+                                      >
+                                        {isTargeted
+                                          ? 'Selected Target'
+                                          : isNext
+                                          ? 'Next: 2nd Place'
+                                          : `Partner ${slot.playerIndex}`}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {isFilled && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleRemoveFromSlot(slot.slotId)
+                                    }}
+                                    className="w-5 h-5 rounded-md bg-zinc-800 hover:bg-red-950 text-zinc-400 hover:text-red-400 border border-zinc-700 flex items-center justify-center transition cursor-pointer shrink-0"
+                                    title="Unassign player back to bench"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )
@@ -1089,7 +1306,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                   <strong>Week {selectedWeek}</strong> • {assignedCount} / {checkedInCount} on Courts
                   {unassignedBenchPlayers.length > 0 && (
                     <span className="text-red-400 font-bold ml-1">
-                      ({unassignedBenchPlayers.length} unassigned)
+                      ({unassignedBenchPlayers.length} unassigned on bench)
                     </span>
                   )}
                 </span>

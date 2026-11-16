@@ -12,10 +12,13 @@ A modern, fast, and production-ready React starter designed to be deployed seaml
 - **Two-Stage Court Cards Weekly Entry**:
   - **Stage 1 (Check-in)**: Select Week 1 to 8, search/quick-add players, and tap to check in participating players.
   - **Stage 2 (Courts & Finishing Order)**:
-    - Automatically renders courts (4 players per court).
+    - Automatically renders courts (4 players / 2 teams per court).
     - Sticky top **Unassigned Bench Dock** displaying all checked-in players.
-    - Tap player names in the bench dock in **finishing order (1st, 2nd, 3rd, 4th)** to place them onto courts.
-    - Finishing place badges (1st Gold, 2nd Silver, 3rd Bronze, 4th Slate) with default tiered court points and editable steppers.
+    - Tap player names in the bench dock in **finishing order**:
+      - 🥇 **1st Place Team (Winners)**: 2 players share 1st place on the court and receive equal points.
+      - 🥈 **2nd Place Team (Runners-up)**: 2 players share 2nd place on the court and receive equal points.
+      - The same shared-points doubles structure applies across all subsequent courts (Court 2, Court 3, etc.).
+    - Shared team points steppers adjust points simultaneously for both partners.
     - Tap to unassign players back to the bench dock at any time.
   - **Save Week**: Bulk upserts all court records to Supabase and triggers database leaderboard recomputation.
 - **Supabase Auth & RLS**: Protected administration portal where only authenticated administrators can add players or record weekly entries.
