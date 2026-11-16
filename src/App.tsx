@@ -13,7 +13,8 @@ import {
   LogOut,
   Database,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  CheckSquare
 } from 'lucide-react'
 import { PlayerScore } from './types/leaderboard'
 import { initialPlayers } from './data/leaderboardData'
@@ -21,12 +22,14 @@ import { LeaderboardTable } from './components/LeaderboardTable'
 import { Podium } from './components/Podium'
 import { AddPlayerModal } from './components/AddPlayerModal'
 import { AdminLoginModal } from './components/AdminLoginModal'
+import { WeeklyEntryScreen } from './components/WeeklyEntryScreen'
 import { useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
 
 export default function App() {
   const { user, isAdmin, signOut, isConfigured } = useAuth()
 
+  const [currentView, setCurrentView] = useState<'leaderboard' | 'weekly-entry'>('leaderboard')
   const [players, setPlayers] = useState<PlayerScore[]>(() => {
     const saved = localStorage.getItem('wendy_leaderboard_players')
     if (saved) {
@@ -45,7 +48,7 @@ export default function App() {
   const [loadingDb, setLoadingDb] = useState(false)
   const [dbError, setDbError] = useState<string | null>(null)
 
-  // Fetch players from Supabase database
+  // Fetch players from database (prioritizing the computed season_leaderboard view)
   const fetchSupabasePlayers = useCallback(async () => {
     if (!isConfigured) return
 
@@ -53,6 +56,25 @@ export default function App() {
     setDbError(null)
 
     try {
+      // 1. Try querying the database-computed view
+      const { data: viewData, error: viewError } = await supabase
+        .from('season_leaderboard')
+        .select('*')
+        .order('total_points', { ascending: false })
+
+      if (!viewError && viewData && viewData.length > 0) {
+        const mapped: PlayerScore[] = viewData.map((item) => ({
+          id: item.id,
+          name: item.name,
+          weeksPlayed: item.weeks_played ?? 0,
+          totalPoints: item.total_points ?? 0,
+        }))
+        setPlayers(mapped)
+        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))
+        return
+      }
+
+      // 2. Fallback to direct players table if view is not yet created
       const { data, error } = await supabase
         .from('players')
         .select('*')
@@ -66,8 +88,8 @@ export default function App() {
         const mapped: PlayerScore[] = data.map((item) => ({
           id: item.id,
           name: item.name,
-          weeksPlayed: item.weeks_played,
-          totalPoints: item.total_points,
+          weeksPlayed: item.weeks_played ?? 0,
+          totalPoints: item.total_points ?? 0,
         }))
         setPlayers(mapped)
         localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))
@@ -80,14 +102,21 @@ export default function App() {
     }
   }, [isConfigured])
 
-  // Load on mount and setup real-time subscription
+  // Load on mount and setup real-time subscriptions
   useEffect(() => {
     if (isConfigured) {
       fetchSupabasePlayers()
 
-      // Subscribe to real-time changes
+      // Subscribe to real-time changes on both weekly_scores and players
       const channel = supabase
-        .channel('public:players')
+        .channel('public:leaderboard_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'weekly_scores' },
+          () => {
+            fetchSupabasePlayers()
+          }
+        )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'players' },
@@ -126,6 +155,15 @@ export default function App() {
     }
   }
 
+  // Navigation tab switcher
+  const handleSelectView = (view: 'leaderboard' | 'weekly-entry') => {
+    if (view === 'weekly-entry' && !isAdmin) {
+      setIsAuthModalOpen(true)
+      return
+    }
+    setCurrentView(view)
+  }
+
   // Sorted list for statistics & podium
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
@@ -156,7 +194,7 @@ export default function App() {
       </div>
 
       {/* Top Navbar / Admin Bar */}
-      <nav className="w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md sticky top-0 z-30">
+      <nav className="w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-3xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800">
@@ -183,7 +221,10 @@ export default function App() {
                   <span className="truncate max-w-[130px]">{user?.email || 'Admin'}</span>
                 </span>
                 <button
-                  onClick={() => signOut()}
+                  onClick={() => {
+                    signOut()
+                    setCurrentView('leaderboard')
+                  }}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition cursor-pointer"
                   title="Sign out as administrator"
                 >
@@ -204,145 +245,200 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-10 flex flex-col gap-6 sm:gap-8">
-        {/* Supabase Error Alert if table missing or connection error */}
+      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
+        {/* Navigation Tabs (Leaderboard vs Admin Weekly Entry) */}
+        <div className="flex items-center justify-center p-1 rounded-2xl bg-slate-900/90 border border-slate-800 max-w-sm mx-auto w-full shadow-lg">
+          <button
+            onClick={() => handleSelectView('leaderboard')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+              currentView === 'leaderboard'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Trophy className="w-4 h-4" />
+            <span>Leaderboard</span>
+          </button>
+
+          <button
+            onClick={() => handleSelectView('weekly-entry')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer relative ${
+              currentView === 'weekly-entry'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <CheckSquare className="w-4 h-4" />
+            <span>Weekly Entry</span>
+            {!isAdmin && (
+              <Lock className="w-3 h-3 text-amber-400/80 absolute right-2.5" />
+            )}
+          </button>
+        </div>
+
+        {/* Database Warning if table missing */}
         {dbError && (
           <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-500/40 text-xs text-amber-200 flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="font-semibold text-amber-300">Database Notice: {dbError}</p>
               <p className="text-[11px] text-amber-400/90 leading-relaxed">
-                Ensure you have created the <code className="bg-slate-900 px-1 py-0.5 rounded">players</code> table using <code className="bg-slate-900 px-1 py-0.5 rounded">supabase/schema.sql</code> in your Supabase SQL Editor.
+                Run the script in <code className="bg-slate-900 px-1 py-0.5 rounded">supabase/schema.sql</code> in your Supabase SQL Editor to set up the tables and computed view.
               </p>
             </div>
           </div>
         )}
 
-        {/* Header Section */}
-        <header className="flex flex-col items-center text-center space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-950/40 text-amber-300 text-xs font-semibold tracking-wide shadow-sm">
-            <Flame className="w-3.5 h-3.5 text-amber-400" />
-            <span>2026 Season Standings</span>
-          </div>
+        {/* VIEW 1: ADMIN WEEKLY ENTRY SCREEN */}
+        {currentView === 'weekly-entry' && isAdmin ? (
+          <WeeklyEntryScreen
+            roster={players}
+            onBackToLeaderboard={() => setCurrentView('leaderboard')}
+            onLeaderboardUpdated={fetchSupabasePlayers}
+            onAddNewPlayerToRoster={handleAddPlayer}
+          />
+        ) : (
+          /* VIEW 2: SEASON LEADERBOARD */
+          <div className="flex flex-col gap-6 sm:gap-8">
+            {/* Header Section */}
+            <header className="flex flex-col items-center text-center space-y-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-950/40 text-amber-300 text-xs font-semibold tracking-wide shadow-sm">
+                <Flame className="w-3.5 h-3.5 text-amber-400" />
+                <span>2026 Season Standings (Weeks 1 to 8)</span>
+              </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white">
-            Wendy Wednesdays
-          </h1>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white">
+                Wendy Wednesdays
+              </h1>
 
-          <p className="text-slate-400 text-sm sm:text-base max-w-md">
-            Official season leaderboard ranked by total points. Powered by Supabase database & authentication.
-          </p>
+              <p className="text-slate-400 text-sm sm:text-base max-w-md">
+                Official season leaderboard ranked by total points. Database-computed from weekly attendance & scores.
+              </p>
 
-          {/* Quick Metrics Bar */}
-          <div className="flex items-center justify-center gap-3 sm:gap-6 pt-1 text-xs text-slate-400">
-            <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
-              <Users className="w-3.5 h-3.5 text-cyan-400" />
-              <span>
-                <strong className="text-white font-mono">{stats.totalPlayers}</strong> Players
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              <span>
-                Leader:{' '}
-                <strong className="text-white font-mono">
-                  {stats.topScore.toLocaleString()}
-                </strong>{' '}
-                pts
-              </span>
-            </div>
-            <div className="hidden sm:flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
-              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-              <span>
-                Avg:{' '}
-                <strong className="text-white font-mono">
-                  {stats.avgPoints.toLocaleString()}
-                </strong>{' '}
-                pts
-              </span>
-            </div>
-          </div>
-        </header>
+              {/* Quick Metrics Bar */}
+              <div className="flex items-center justify-center gap-3 sm:gap-6 pt-1 text-xs text-slate-400">
+                <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+                  <Users className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>
+                    <strong className="text-white font-mono">{stats.totalPlayers}</strong> Players
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span>
+                    Leader:{' '}
+                    <strong className="text-white font-mono">
+                      {stats.topScore.toLocaleString()}
+                    </strong>{' '}
+                    pts
+                  </span>
+                </div>
+                <div className="hidden sm:flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>
+                    Avg:{' '}
+                    <strong className="text-white font-mono">
+                      {stats.avgPoints.toLocaleString()}
+                    </strong>{' '}
+                    pts
+                  </span>
+                </div>
+              </div>
+            </header>
 
-        {/* Top 3 Podium (Visual Spotlight for Top Three Ranks) */}
-        {topThree.length >= 3 && !searchQuery && (
-          <section aria-label="Top 3 Season Leaders">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Top Three Leaders</span>
-              </h2>
-            </div>
-            <Podium topPlayers={topThree} />
-          </section>
-        )}
+            {/* Top 3 Podium (Visual Spotlight for Top Three Ranks) */}
+            {topThree.length >= 3 && !searchQuery && (
+              <section aria-label="Top 3 Season Leaders">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Top Three Leaders</span>
+                  </h2>
+                </div>
+                <Podium topPlayers={topThree} />
+              </section>
+            )}
 
-        {/* Controls Bar (Mobile-first Search & Add Player Action) */}
-        <div className="flex items-center gap-2 pt-1">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search player name..."
-              className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
-            />
-            {searchQuery && (
+            {/* Controls Bar (Mobile-first Search, Add Player & Refresh) */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search player name..."
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-800 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Add Player (Protected for Admins only) */}
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-800 cursor-pointer"
+                onClick={handleOpenAddPlayer}
+                className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer shadow-md shrink-0 ${
+                  isAdmin
+                    ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20 active:scale-95'
+                    : 'bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/80'
+                }`}
+                title={isAdmin ? 'Add New Player' : 'Admin Login required to add player'}
               >
-                Clear
+                {isAdmin ? (
+                  <UserPlus className="w-4 h-4" />
+                ) : (
+                  <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                )}
+                <span className="hidden sm:inline">Add Player</span>
               </button>
-            )}
+
+              {/* Weekly Entry shortcut for admin */}
+              {isAdmin && (
+                <button
+                  onClick={() => setCurrentView('weekly-entry')}
+                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition cursor-pointer shadow-md shadow-emerald-500/20 active:scale-95 shrink-0"
+                  title="Record Weekly Entry"
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  <span className="hidden sm:inline">Record Week</span>
+                </button>
+              )}
+
+              {/* Refresh / Sync with Supabase */}
+              {isConfigured && (
+                <button
+                  onClick={fetchSupabasePlayers}
+                  disabled={loadingDb}
+                  className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0 disabled:opacity-50"
+                  title="Refresh from Supabase database"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingDb ? 'animate-spin text-cyan-400' : ''}`} />
+                </button>
+              )}
+
+              {!isConfigured && (
+                <button
+                  onClick={handleResetData}
+                  className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0"
+                  title="Reset to default scores"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Mobile-First Season Leaderboard Table (Only Rank, Player, Weeks, Points) */}
+            <section aria-label="Season Standings Table">
+              <LeaderboardTable players={players} searchQuery={searchQuery} />
+            </section>
           </div>
-
-          {/* Add Player (Protected for Admins only) */}
-          <button
-            onClick={handleOpenAddPlayer}
-            className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer shadow-md shrink-0 ${
-              isAdmin
-                ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20 active:scale-95'
-                : 'bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/80'
-            }`}
-            title={isAdmin ? 'Add New Player' : 'Admin Login required to add player'}
-          >
-            {isAdmin ? (
-              <UserPlus className="w-4 h-4" />
-            ) : (
-              <Lock className="w-3.5 h-3.5 text-cyan-400" />
-            )}
-            <span className="hidden sm:inline">Add Player</span>
-          </button>
-
-          {/* Refresh / Sync with Supabase */}
-          {isConfigured && (
-            <button
-              onClick={fetchSupabasePlayers}
-              disabled={loadingDb}
-              className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0 disabled:opacity-50"
-              title="Refresh from Supabase database"
-            >
-              <RefreshCw className={`w-4 h-4 ${loadingDb ? 'animate-spin text-cyan-400' : ''}`} />
-            </button>
-          )}
-
-          {!isConfigured && (
-            <button
-              onClick={handleResetData}
-              className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0"
-              title="Reset to default scores"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Mobile-First Season Leaderboard Table */}
-        <section aria-label="Season Standings Table">
-          <LeaderboardTable players={players} searchQuery={searchQuery} />
-        </section>
+        )}
 
         {/* Legend / Info Footer */}
         <footer className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800/80 text-xs text-slate-500 text-center sm:text-left">
@@ -377,7 +473,8 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={() => {
-          setIsAddModalOpen(true)
+          // If user intended to open weekly entry, transition there
+          setCurrentView('weekly-entry')
         }}
       />
     </div>

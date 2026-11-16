@@ -7,8 +7,15 @@ A modern, fast, and production-ready React starter designed to be deployed seaml
 - **React 19 & TypeScript**: Latest React features with full type safety.
 - **Vite 6**: Instant server start, blazing-fast HMR, and optimized production builds.
 - **Tailwind CSS v4**: Powered by `@tailwindcss/vite` with zero extra configuration.
-- **Supabase Database**: Cloud PostgreSQL storage for players and season scores with real-time updates.
-- **Supabase Auth & RLS**: Protected administration portal where only authenticated administrators can add new players.
+- **Supabase Database**: Cloud PostgreSQL storage for players and weekly scores with real-time updates.
+- **Database-Computed Leaderboard**: PostgreSQL view (`season_leaderboard`) and trigger automatically aggregate weeks played and total points across weeks.
+- **Admin-Only Weekly Entry Screen**:
+  - Horizontal selector for Weeks 1 to 8.
+  - Quick-add player bar for immediate roster addition.
+  - One-tap attendance toggling with distinct active visual state.
+  - Quick-tap point preset pills (`+10`, `+25`, `+50`, `+100`) and a `+` / `-` stepper.
+  - Sticky "Save Week" button with bulk upsert to Supabase `weekly_scores`.
+- **Supabase Auth & RLS**: Protected administration portal where only authenticated administrators can add players or record weekly entries.
 - **Mobile-First Leaderboard**: Clean 4-column display (Rank, Player Name, Weeks Played, Total Points) with distinct Gold, Silver, and Bronze badges for the top three.
 - **Cloudflare Pages Ready**:
   - `public/_redirects` ensures SPA client-side routing works on full page reloads.
