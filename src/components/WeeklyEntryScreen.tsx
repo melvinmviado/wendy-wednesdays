@@ -137,7 +137,6 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
           return {
             ...row,
             attended: nextAttended,
-            // If turning on attendance and points are 0, set default baseline or leave 0
             points: row.points,
           }
         }
@@ -154,7 +153,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
           const newPoints = Math.max(0, row.points + delta)
           return {
             ...row,
-            attended: true, // Automatically ensure player is marked attended if assigning points
+            attended: true,
             points: newPoints,
           }
         }
@@ -235,13 +234,10 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
     setSaveSuccessMsg(null)
 
     try {
-      // Gather checked players
       const checkedPlayers = playerRows.filter((r) => r.attended)
 
       if (isSupabaseConfigured) {
         // Bulk upsert to Supabase weekly_scores table
-        // We include all rows for this week: checked players marked attended:true with points,
-        // and unchecked players marked attended:false (or cleared)
         const upsertPayload = playerRows.map((r) => ({
           player_id: r.playerId,
           week_number: selectedWeek,
@@ -257,8 +253,6 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
           throw upsertError
         }
 
-        // Database calculates the leaderboard via view / triggers!
-        // Notify parent to re-fetch freshly computed season standings
         onLeaderboardUpdated()
       } else {
         // Demo mode: save to local storage & recompute
@@ -330,17 +324,17 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
   return (
     <div className="w-full flex flex-col gap-6">
       {/* Header / Nav Back Bar */}
-      <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="flex items-center justify-between gap-3 pb-3 border-b border-zinc-800">
         <button
           onClick={onBackToLeaderboard}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-semibold transition cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white hover:border-zinc-700 text-xs font-semibold transition cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4 text-cyan-400" />
+          <ArrowLeft className="w-4 h-4 text-red-500" />
           <span>Leaderboard</span>
         </button>
 
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-xs font-bold tracking-wide">
+          <span className="px-3 py-1 rounded-full bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-bold tracking-wide">
             Admin Weekly Entry
           </span>
         </div>
@@ -349,11 +343,11 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
       {/* Week Selector (Weeks 1 to 8) */}
       <section className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+          <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-red-500" />
             <span>Select Week (1 to 8)</span>
           </label>
-          <span className="text-xs font-mono font-semibold text-cyan-400">
+          <span className="text-xs font-mono font-bold text-red-400">
             Active: Week {selectedWeek}
           </span>
         </div>
@@ -368,8 +362,8 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                 onClick={() => setSelectedWeek(week)}
                 className={`py-2.5 px-2 rounded-xl text-center font-bold text-xs sm:text-sm transition-all cursor-pointer border ${
                   isSelected
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 border-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/25 scale-[1.03]'
-                    : 'bg-slate-900/90 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-850'
+                    ? 'bg-gradient-to-r from-red-600 to-red-700 border-red-500 text-white shadow-lg shadow-red-600/30 scale-[1.03]'
+                    : 'bg-zinc-900/90 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800'
                 }`}
               >
                 <span>Week {week}</span>
@@ -383,19 +377,19 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
       <section className="w-full">
         <form onSubmit={handleQuickAddPlayer} className="flex gap-2">
           <div className="relative flex-1">
-            <UserPlus className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <UserPlus className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={newPlayerName}
               onChange={(e) => setNewPlayerName(e.target.value)}
               placeholder="Quick add player to roster..."
-              className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
+              className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
             />
           </div>
           <button
             type="submit"
             disabled={!newPlayerName.trim()}
-            className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-slate-950 font-bold text-xs sm:text-sm transition cursor-pointer shadow-md shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold text-xs sm:text-sm transition cursor-pointer shadow-md shadow-red-600/30 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
           >
             + Add
           </button>
@@ -404,14 +398,14 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
 
       {/* Status & Alerts */}
       {saveSuccessMsg && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs text-emerald-300 flex items-center justify-between gap-2 animate-in fade-in">
+        <div className="p-3.5 rounded-xl bg-zinc-900 border border-white/20 text-xs text-white flex items-center justify-between gap-2 animate-in fade-in shadow-lg">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-red-500" />
             <span>{saveSuccessMsg}</span>
           </div>
           <button
             onClick={onBackToLeaderboard}
-            className="underline font-bold text-emerald-200 hover:text-white cursor-pointer shrink-0"
+            className="underline font-bold text-red-400 hover:text-white cursor-pointer shrink-0"
           >
             View Standings →
           </button>
@@ -419,38 +413,38 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
       )}
 
       {errorMsg && (
-        <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-800/60 text-xs text-rose-300 flex items-center gap-2 animate-in fade-in">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+        <div className="p-3.5 rounded-xl bg-red-950/70 border border-red-800/80 text-xs text-red-200 flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {/* Week Summary & Search Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-zinc-900/70 border border-zinc-800">
         <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
-            <Users className="w-4 h-4 text-cyan-400" />
+          <div className="flex items-center gap-1.5 text-zinc-300 font-semibold">
+            <Users className="w-4 h-4 text-red-500" />
             <span>
               <strong className="text-white font-mono">{checkedCount}</strong> Attended
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
-            <Award className="w-4 h-4 text-amber-400" />
+          <div className="flex items-center gap-1.5 text-zinc-300 font-semibold">
+            <Award className="w-4 h-4 text-white" />
             <span>
-              <strong className="text-white font-mono">{totalWeekPoints}</strong> Week Pts
+              <strong className="text-red-400 font-mono font-bold">{totalWeekPoints}</strong> Week Pts
             </span>
           </div>
         </div>
 
         {/* Search within week */}
         <div className="relative max-w-xs w-full">
-          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             placeholder="Filter players..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-black border border-zinc-800 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500"
           />
         </div>
       </div>
@@ -458,21 +452,21 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
       {/* Player List: Tap to Check Attended + Quick Pills & Stepper */}
       <section className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
             Roster • Tap to check attendance
           </span>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-[11px] text-zinc-500 font-mono">
             {filteredRows.length} players
           </span>
         </div>
 
         {loadingWeek ? (
-          <div className="py-12 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+          <div className="py-12 text-center text-zinc-400 text-sm flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin text-red-500" />
             <span>Loading Week {selectedWeek} entries...</span>
           </div>
         ) : filteredRows.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 text-sm rounded-2xl border border-slate-800 bg-slate-900/40">
+          <div className="py-12 text-center text-zinc-500 text-sm rounded-2xl border border-zinc-800 bg-zinc-950/40">
             No players found. Use the quick add bar above to add one!
           </div>
         ) : (
@@ -485,8 +479,8 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                   key={player.playerId}
                   className={`w-full rounded-2xl border transition-all duration-200 p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                     isAttended
-                      ? 'bg-slate-900/90 border-emerald-500/40 shadow-md shadow-emerald-500/5 ring-1 ring-emerald-500/20'
-                      : 'bg-slate-950/60 border-slate-800/80 opacity-70 hover:opacity-100 hover:border-slate-700'
+                      ? 'bg-zinc-900/95 border-red-500/50 shadow-md shadow-red-950/20 ring-1 ring-red-500/30'
+                      : 'bg-black/60 border-zinc-850 opacity-65 hover:opacity-100 hover:border-zinc-750'
                   }`}
                 >
                   {/* Left: Tapping toggles attendance */}
@@ -498,8 +492,8 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                     <div
                       className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0 ${
                         isAttended
-                          ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30 ring-2 ring-emerald-400/50'
-                          : 'border border-slate-700 bg-slate-900 text-transparent'
+                          ? 'bg-red-600 text-white shadow-md shadow-red-600/40 ring-2 ring-red-400/50'
+                          : 'border border-zinc-700 bg-zinc-900 text-transparent'
                       }`}
                     >
                       <Check className="w-4 h-4 stroke-[3]" />
@@ -508,19 +502,19 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                     <div className="truncate">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`font-semibold text-sm truncate ${
-                            isAttended ? 'text-white' : 'text-slate-400'
+                          className={`font-bold text-sm truncate ${
+                            isAttended ? 'text-white' : 'text-zinc-400'
                           }`}
                         >
                           {player.name}
                         </span>
                         {isAttended && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-300">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-950/70 border border-red-500/40 text-red-300">
                             Attended
                           </span>
                         )}
                       </div>
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-zinc-500">
                         {isAttended ? 'Tap to mark absent' : 'Tap to mark attended'}
                       </span>
                     </div>
@@ -528,7 +522,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
 
                   {/* Right: Point Assignment Quick-Tap Pills & +/- Stepper */}
                   {isAttended ? (
-                    <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0 sm:border-l sm:border-slate-800 sm:pl-3">
+                    <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0 sm:border-l sm:border-zinc-800 sm:pl-3">
                       {/* Quick-tap point pills */}
                       <div className="flex items-center gap-1">
                         {QUICK_POINT_PILLS.map((increment) => (
@@ -536,7 +530,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                             key={increment}
                             type="button"
                             onClick={() => adjustPoints(player.playerId, increment)}
-                            className="px-2 py-1 rounded-lg bg-cyan-950/70 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono text-xs font-bold active:scale-90 transition cursor-pointer hover:bg-cyan-900/50"
+                            className="px-2.5 py-1 rounded-lg bg-red-950/60 border border-red-500/40 hover:border-red-400 text-red-200 font-mono text-xs font-bold active:scale-90 transition cursor-pointer hover:bg-red-900/50"
                             title={`Add ${increment} points`}
                           >
                             +{increment}
@@ -545,11 +539,11 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                       </div>
 
                       {/* +/- Stepper and Points Display */}
-                      <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1">
+                      <div className="flex items-center gap-1 bg-black border border-zinc-800 rounded-xl p-1">
                         <button
                           type="button"
                           onClick={() => adjustPoints(player.playerId, -5)}
-                          className="w-7 h-7 rounded-lg bg-slate-900 hover:bg-slate-800 active:scale-90 text-slate-300 flex items-center justify-center transition cursor-pointer"
+                          className="w-7 h-7 rounded-lg bg-zinc-900 hover:bg-zinc-800 active:scale-90 text-zinc-300 hover:text-white flex items-center justify-center transition cursor-pointer"
                           title="Minus 5 points"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -561,13 +555,13 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                           step="5"
                           value={player.points}
                           onChange={(e) => setExactPoints(player.playerId, parseInt(e.target.value, 10))}
-                          className="w-14 text-center font-mono font-bold text-sm bg-transparent text-emerald-400 focus:outline-none"
+                          className="w-14 text-center font-mono font-bold text-sm bg-transparent text-white focus:outline-none"
                         />
 
                         <button
                           type="button"
                           onClick={() => adjustPoints(player.playerId, 5)}
-                          className="w-7 h-7 rounded-lg bg-slate-900 hover:bg-slate-800 active:scale-90 text-slate-300 flex items-center justify-center transition cursor-pointer"
+                          className="w-7 h-7 rounded-lg bg-zinc-900 hover:bg-zinc-800 active:scale-90 text-zinc-300 hover:text-white flex items-center justify-center transition cursor-pointer"
                           title="Add 5 points"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -575,7 +569,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="text-[11px] text-slate-600 italic">
+                    <div className="text-[11px] text-zinc-600 italic">
                       Check attendance to assign points
                     </div>
                   )}
@@ -588,28 +582,28 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
 
       {/* Sticky / Fixed Save Week Bar */}
       <div className="sticky bottom-4 z-20 w-full pt-2">
-        <div className="w-full p-4 rounded-2xl bg-slate-900/95 border border-slate-700/80 backdrop-blur-lg shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-slate-300">
-            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+        <div className="w-full p-4 rounded-2xl bg-zinc-950/95 border border-zinc-800 backdrop-blur-lg shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-zinc-300">
+            <Sparkles className="w-4 h-4 text-red-500 shrink-0" />
             <span>
               <strong>Week {selectedWeek}</strong> • {checkedCount} checked players •{' '}
-              <strong className="text-emerald-400 font-mono">{totalWeekPoints} pts</strong>
+              <strong className="text-red-400 font-mono font-bold">{totalWeekPoints} pts</strong>
             </span>
           </div>
 
           <button
             onClick={handleSaveWeek}
             disabled={saving || loadingWeek}
-            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 active:scale-95 text-slate-950 font-black text-sm tracking-wide shadow-lg shadow-emerald-500/25 transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-red-600 via-red-500 to-red-700 hover:from-red-500 hover:to-red-600 active:scale-95 text-white font-black text-sm tracking-wide shadow-lg shadow-red-600/30 transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {saving ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                <RefreshCw className="w-4 h-4 animate-spin text-white" />
                 <span>Saving Week {selectedWeek}...</span>
               </>
             ) : (
               <>
-                <Save className="w-4 h-4 text-slate-950" />
+                <Save className="w-4 h-4 text-white" />
                 <span>Save Week {selectedWeek} & Compute Leaderboard</span>
               </>
             )}

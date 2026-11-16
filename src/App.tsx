@@ -186,32 +186,32 @@ export default function App() {
   }, [players, sortedPlayers])
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-cyan-500 selection:text-black">
-      {/* Background ambient lighting */}
+    <div className="min-h-screen bg-black text-white selection:bg-red-600 selection:text-white">
+      {/* Background ambient lighting in deep crimson & black */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] bg-gradient-to-b from-amber-500/10 via-cyan-500/5 to-transparent rounded-full blur-3xl" />
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 -right-40 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl" />
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[38rem] h-[38rem] bg-gradient-to-b from-red-600/15 via-red-950/10 to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-red-900/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 -right-40 w-80 h-80 bg-red-950/15 rounded-full blur-3xl" />
       </div>
 
       {/* Top Navbar / Admin Bar */}
-      <nav className="w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
+      <nav className="w-full border-b border-zinc-800/80 bg-black/85 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-3xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2.5">
             <WebsiteLogo size="sm" />
-            <span className="font-bold text-white text-xs sm:text-sm tracking-tight hidden sm:inline">
+            <span className="font-extrabold text-white text-xs sm:text-sm tracking-tight hidden sm:inline">
               Wendy Wednesdays
             </span>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800">
-              <Database className={`w-3.5 h-3.5 ${isConfigured ? 'text-emerald-400' : 'text-amber-400'}`} />
-              <span className="font-medium text-slate-300">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800">
+              <Database className={`w-3.5 h-3.5 ${isConfigured ? 'text-emerald-400' : 'text-red-500'}`} />
+              <span className="font-medium text-zinc-300">
                 {isConfigured ? 'Supabase Connected' : 'Demo Mode'}
               </span>
             </div>
             {!isConfigured && (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="hidden sm:inline-block text-[11px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
+                className="hidden sm:inline-block text-[11px] text-red-400 hover:text-red-300 underline cursor-pointer"
               >
                 Connect Database
               </button>
@@ -221,8 +221,8 @@ export default function App() {
           <div className="flex items-center gap-2">
             {isAdmin ? (
               <div className="flex items-center gap-2">
-                <span className="hidden sm:flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[11px] font-medium">
-                  <ShieldCheck className="w-3 h-3" />
+                <span className="hidden sm:flex items-center gap-1 text-red-300 bg-red-950/60 border border-red-500/40 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                  <ShieldCheck className="w-3 h-3 text-red-400" />
                   <span className="truncate max-w-[130px]">{user?.email || 'Admin'}</span>
                 </span>
                 <button
@@ -230,7 +230,7 @@ export default function App() {
                     signOut()
                     setCurrentView('leaderboard')
                   }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:border-zinc-700 transition cursor-pointer"
                   title="Sign out as administrator"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -240,9 +240,9 @@ export default function App() {
             ) : (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900/90 text-slate-300 hover:text-white transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-800 bg-zinc-900/90 text-zinc-200 hover:text-white hover:border-red-600/50 transition cursor-pointer"
               >
-                <Lock className="w-3 h-3 text-cyan-400" />
+                <Lock className="w-3 h-3 text-red-500" />
                 <span>Admin Login</span>
               </button>
             )}
@@ -252,13 +252,13 @@ export default function App() {
 
       <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
         {/* Navigation Tabs (Leaderboard vs Admin Weekly Entry) */}
-        <div className="flex items-center justify-center p-1 rounded-2xl bg-slate-900/90 border border-slate-800 max-w-sm mx-auto w-full shadow-lg">
+        <div className="flex items-center justify-center p-1 rounded-2xl bg-zinc-900/90 border border-zinc-800 max-w-sm mx-auto w-full shadow-xl">
           <button
             onClick={() => handleSelectView('leaderboard')}
             className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
               currentView === 'leaderboard'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md shadow-red-600/30'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Trophy className="w-4 h-4" />
@@ -269,26 +269,26 @@ export default function App() {
             onClick={() => handleSelectView('weekly-entry')}
             className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer relative ${
               currentView === 'weekly-entry'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md shadow-red-600/30'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             <CheckSquare className="w-4 h-4" />
             <span>Weekly Entry</span>
             {!isAdmin && (
-              <Lock className="w-3 h-3 text-amber-400/80 absolute right-2.5" />
+              <Lock className="w-3 h-3 text-red-400 absolute right-2.5" />
             )}
           </button>
         </div>
 
         {/* Database Warning if table missing */}
         {dbError && (
-          <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-500/40 text-xs text-amber-200 flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="p-3.5 rounded-xl bg-red-950/60 border border-red-500/40 text-xs text-red-200 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-semibold text-amber-300">Database Notice: {dbError}</p>
-              <p className="text-[11px] text-amber-400/90 leading-relaxed">
-                Run the script in <code className="bg-slate-900 px-1 py-0.5 rounded">supabase/schema.sql</code> in your Supabase SQL Editor to set up the tables and computed view.
+              <p className="font-semibold text-white">Database Notice: {dbError}</p>
+              <p className="text-[11px] text-red-300 leading-relaxed">
+                Run the script in <code className="bg-zinc-900 px-1 py-0.5 rounded text-white">supabase/schema.sql</code> in your Supabase SQL Editor to set up the tables and computed view.
               </p>
             </div>
           </div>
@@ -309,8 +309,8 @@ export default function App() {
             <header className="flex flex-col items-center text-center space-y-3 pt-2">
               <WebsiteLogo size="xl" className="mb-1" />
 
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-950/40 text-amber-300 text-xs font-semibold tracking-wide shadow-sm">
-                <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-red-500/40 bg-red-950/50 text-red-300 text-xs font-bold tracking-wide shadow-sm">
+                <Flame className="w-3.5 h-3.5 text-red-500" />
                 <span>2026 Season Standings (Weeks 1 to 8)</span>
               </div>
 
@@ -318,30 +318,30 @@ export default function App() {
                 Wendy Wednesdays
               </h1>
 
-              <p className="text-slate-400 text-sm sm:text-base max-w-md">
+              <p className="text-zinc-400 text-sm sm:text-base max-w-md">
                 Official season leaderboard ranked by total points. Database-computed from weekly attendance & scores.
               </p>
 
               {/* Quick Metrics Bar */}
-              <div className="flex items-center justify-center gap-3 sm:gap-6 pt-1 text-xs text-slate-400">
-                <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
-                  <Users className="w-3.5 h-3.5 text-cyan-400" />
+              <div className="flex items-center justify-center gap-3 sm:gap-6 pt-1 text-xs text-zinc-400">
+                <div className="flex items-center gap-1.5 bg-zinc-900/90 px-3 py-1.5 rounded-xl border border-zinc-800">
+                  <Users className="w-3.5 h-3.5 text-red-500" />
                   <span>
                     <strong className="text-white font-mono">{stats.totalPlayers}</strong> Players
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
-                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <div className="flex items-center gap-1.5 bg-zinc-900/90 px-3 py-1.5 rounded-xl border border-zinc-800">
+                  <Trophy className="w-3.5 h-3.5 text-white" />
                   <span>
                     Leader:{' '}
-                    <strong className="text-white font-mono">
+                    <strong className="text-red-400 font-mono font-bold">
                       {stats.topScore.toLocaleString()}
                     </strong>{' '}
                     pts
                   </span>
                 </div>
-                <div className="hidden sm:flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                <div className="hidden sm:flex items-center gap-1.5 bg-zinc-900/90 px-3 py-1.5 rounded-xl border border-zinc-800">
+                  <Calendar className="w-3.5 h-3.5 text-zinc-400" />
                   <span>
                     Avg:{' '}
                     <strong className="text-white font-mono">
@@ -357,8 +357,8 @@ export default function App() {
             {topThree.length >= 3 && !searchQuery && (
               <section aria-label="Top 3 Season Leaders">
                 <div className="flex items-center justify-between mb-3 px-1">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-red-500" />
                     <span>Top Three Leaders</span>
                   </h2>
                 </div>
@@ -369,18 +369,18 @@ export default function App() {
             {/* Controls Bar (Mobile-first Search, Add Player & Refresh) */}
             <div className="flex items-center gap-2 pt-1">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search player name..."
-                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-800 cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-white px-1.5 py-0.5 rounded bg-zinc-800 cursor-pointer"
                   >
                     Clear
                   </button>
@@ -390,17 +390,17 @@ export default function App() {
               {/* Add Player (Protected for Admins only) */}
               <button
                 onClick={handleOpenAddPlayer}
-                className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer shadow-md shrink-0 ${
+                className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-md shrink-0 ${
                   isAdmin
-                    ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20 active:scale-95'
-                    : 'bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/80'
+                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30 active:scale-95'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80'
                 }`}
                 title={isAdmin ? 'Add New Player' : 'Admin Login required to add player'}
               >
                 {isAdmin ? (
                   <UserPlus className="w-4 h-4" />
                 ) : (
-                  <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                  <Lock className="w-3.5 h-3.5 text-red-500" />
                 )}
                 <span className="hidden sm:inline">Add Player</span>
               </button>
@@ -409,7 +409,7 @@ export default function App() {
               {isAdmin && (
                 <button
                   onClick={() => setCurrentView('weekly-entry')}
-                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition cursor-pointer shadow-md shadow-emerald-500/20 active:scale-95 shrink-0"
+                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs sm:text-sm transition cursor-pointer shadow-md shadow-white/10 active:scale-95 shrink-0"
                   title="Record Weekly Entry"
                 >
                   <CheckSquare className="w-4 h-4" />
@@ -422,17 +422,17 @@ export default function App() {
                 <button
                   onClick={fetchSupabasePlayers}
                   disabled={loadingDb}
-                  className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0 disabled:opacity-50"
+                  className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 active:scale-95 text-zinc-400 hover:text-white transition cursor-pointer shrink-0 disabled:opacity-50"
                   title="Refresh from Supabase database"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loadingDb ? 'animate-spin text-cyan-400' : ''}`} />
+                  <RefreshCw className={`w-4 h-4 ${loadingDb ? 'animate-spin text-red-500' : ''}`} />
                 </button>
               )}
 
               {!isConfigured && (
                 <button
                   onClick={handleResetData}
-                  className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white transition cursor-pointer shrink-0"
+                  className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 active:scale-95 text-zinc-400 hover:text-white transition cursor-pointer shrink-0"
                   title="Reset to default scores"
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -448,7 +448,7 @@ export default function App() {
         )}
 
         {/* Legend / Info Footer */}
-        <footer className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800/80 text-xs text-slate-500 text-center sm:text-left">
+        <footer className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-zinc-850 text-xs text-zinc-500 text-center sm:text-left">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> Gold: 1st
@@ -461,8 +461,8 @@ export default function App() {
             </span>
           </div>
 
-          <div className="text-[11px] text-slate-500">
-            Cloudflare Pages • Supabase Database & Auth
+          <div className="text-[11px] text-zinc-500">
+            Wendy Wednesdays • Cloudflare Pages & Supabase
           </div>
         </footer>
       </main>
@@ -480,7 +480,6 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={() => {
-          // If user intended to open weekly entry, transition there
           setCurrentView('weekly-entry')
         }}
       />

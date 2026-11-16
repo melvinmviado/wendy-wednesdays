@@ -42,7 +42,7 @@ export const WebsiteLogo: React.FC<WebsiteLogoProps> = ({
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center shrink-0 rounded-full overflow-hidden select-none bg-slate-900 border border-slate-700/60 shadow-md shadow-black/40 ring-2 ring-cyan-500/20 ${dimensionClass} ${className}`}
+      className={`relative inline-flex items-center justify-center shrink-0 rounded-full overflow-hidden select-none bg-black border border-white/20 shadow-xl shadow-red-950/30 ring-2 ring-red-600/60 ${dimensionClass} ${className}`}
     >
       {!hasFailedAll ? (
         <img
@@ -53,8 +53,8 @@ export const WebsiteLogo: React.FC<WebsiteLogoProps> = ({
           loading="eager"
         />
       ) : (
-        /* Fallback stylized monogram circle if no image file is found */
-        <div className="w-full h-full rounded-full bg-gradient-to-br from-cyan-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white font-black tracking-tighter">
+        /* Fallback stylized monogram circle in black, red & white */
+        <div className="w-full h-full rounded-full bg-gradient-to-br from-red-600 via-red-800 to-black flex items-center justify-center text-white font-black tracking-tighter border border-white/30">
           <span className={size === 'sm' ? 'text-[10px]' : size === 'md' ? 'text-xs' : 'text-lg'}>
             WW
           </span>
