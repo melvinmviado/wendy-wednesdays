@@ -7,16 +7,22 @@ create table if not exists public.players (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 2. Create the weekly_scores table
+-- 2. Create the weekly_scores table with court & finish order
 create table if not exists public.weekly_scores (
   id uuid default gen_random_uuid() primary key,
   player_id uuid references public.players(id) on delete cascade not null,
   week_number integer not null check (week_number between 1 and 8),
   attended boolean not null default true,
+  court_number integer check (court_number >= 1),
+  finish_order integer check (finish_order between 1 and 4),
   points integer not null default 0 check (points >= 0),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   constraint unique_player_week unique (player_id, week_number)
 );
+
+-- Add columns if table already existed previously
+alter table public.weekly_scores add column if not exists court_number integer check (court_number >= 1);
+alter table public.weekly_scores add column if not exists finish_order integer check (finish_order between 1 and 4);
 
 -- 3. Database computed leaderboard view
 create or replace view public.season_leaderboard as

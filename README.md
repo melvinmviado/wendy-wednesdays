@@ -9,12 +9,15 @@ A modern, fast, and production-ready React starter designed to be deployed seaml
 - **Tailwind CSS v4**: Powered by `@tailwindcss/vite` with zero extra configuration.
 - **Supabase Database**: Cloud PostgreSQL storage for players and weekly scores with real-time updates.
 - **Database-Computed Leaderboard**: PostgreSQL view (`season_leaderboard`) and trigger automatically aggregate weeks played and total points across weeks.
-- **Admin-Only Weekly Entry Screen**:
-  - Horizontal selector for Weeks 1 to 8.
-  - Quick-add player bar for immediate roster addition.
-  - One-tap attendance toggling with distinct active visual state.
-  - Quick-tap point preset pills (`+10`, `+25`, `+50`, `+100`) and a `+` / `-` stepper.
-  - Sticky "Save Week" button with bulk upsert to Supabase `weekly_scores`.
+- **Two-Stage Court Cards Weekly Entry**:
+  - **Stage 1 (Check-in)**: Select Week 1 to 8, search/quick-add players, and tap to check in participating players.
+  - **Stage 2 (Courts & Finishing Order)**:
+    - Automatically renders courts (4 players per court).
+    - Sticky top **Unassigned Bench Dock** displaying all checked-in players.
+    - Tap player names in the bench dock in **finishing order (1st, 2nd, 3rd, 4th)** to place them onto courts.
+    - Finishing place badges (1st Gold, 2nd Silver, 3rd Bronze, 4th Slate) with default tiered court points and editable steppers.
+    - Tap to unassign players back to the bench dock at any time.
+  - **Save Week**: Bulk upserts all court records to Supabase and triggers database leaderboard recomputation.
 - **Supabase Auth & RLS**: Protected administration portal where only authenticated administrators can add players or record weekly entries.
 - **Mobile-First Leaderboard**: Clean 4-column display (Rank, Player Name, Weeks Played, Total Points) with distinct Gold, Silver, and Bronze badges for the top three.
 - **Cloudflare Pages Ready**:
