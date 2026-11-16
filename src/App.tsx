@@ -23,6 +23,7 @@ import { Podium } from './components/Podium'
 import { AddPlayerModal } from './components/AddPlayerModal'
 import { AdminLoginModal } from './components/AdminLoginModal'
 import { WeeklyEntryScreen } from './components/WeeklyEntryScreen'
+import { WebsiteLogo } from './components/WebsiteLogo'
 import { useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
 
@@ -196,7 +197,11 @@ export default function App() {
       {/* Top Navbar / Admin Bar */}
       <nav className="w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-3xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <WebsiteLogo size="sm" />
+            <span className="font-bold text-white text-xs sm:text-sm tracking-tight hidden sm:inline">
+              Wendy Wednesdays
+            </span>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800">
               <Database className={`w-3.5 h-3.5 ${isConfigured ? 'text-emerald-400' : 'text-amber-400'}`} />
               <span className="font-medium text-slate-300">
@@ -301,7 +306,9 @@ export default function App() {
           /* VIEW 2: SEASON LEADERBOARD */
           <div className="flex flex-col gap-6 sm:gap-8">
             {/* Header Section */}
-            <header className="flex flex-col items-center text-center space-y-3">
+            <header className="flex flex-col items-center text-center space-y-3 pt-2">
+              <WebsiteLogo size="xl" className="mb-1" />
+
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-950/40 text-amber-300 text-xs font-semibold tracking-wide shadow-sm">
                 <Flame className="w-3.5 h-3.5 text-amber-400" />
                 <span>2026 Season Standings (Weeks 1 to 8)</span>
