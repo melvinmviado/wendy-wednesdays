@@ -175,7 +175,7 @@ export default function App() {
     })
   }, [players])
 
-  const topThree = useMemo(() => sortedPlayers.slice(0, 3), [sortedPlayers])
+  const topThree = useMemo(() => sortedPlayers.slice(0, 3).filter((p) => p.totalPoints > 0), [sortedPlayers])
 
   const stats = useMemo(() => {
     const totalPlayers = players.length
@@ -354,7 +354,7 @@ export default function App() {
             </header>
 
             {/* Top 3 Podium (Visual Spotlight for Top Three Ranks) */}
-            {topThree.length >= 3 && !searchQuery && (
+            {topThree.length >= 1 && !searchQuery && (
               <section aria-label="Top 3 Season Leaders">
                 <div className="flex items-center justify-between mb-3 px-1">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">

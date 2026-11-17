@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.next/
+*.lock
+package-lock.json
+yarn.lock
+*.min.js
+*.map
+coverage/
+.git/
+*.log
+__pycache__/
+.env*

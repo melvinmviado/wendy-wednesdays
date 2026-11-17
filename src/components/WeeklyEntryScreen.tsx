@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { PlayerScore, CourtData, WeeklyScoreRecord } from '../types/leaderboard'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { getTeamOverallRank } from '../utils/scoring'
 
 interface WeeklyEntryScreenProps {
   roster: PlayerScore[]
@@ -32,12 +33,12 @@ interface WeeklyEntryScreenProps {
 
 const WEEKS = [1, 2, 3, 4, 5, 6, 7, 8]
 
-// Default point matrix for Doubles (2 teams of 2 players per court):
-// Both players on the 1st place team share the win points.
-// Both players on the 2nd place team share the runner-up points.
+// Default points: 10 for the overall 1st place team, then 1 fewer for each following team
+// (Court 1 winners 10, Court 1 runners-up 9, Court 2 winners 8, ...), floored at 0.
+// Both players on a team share the team's points.
 const getCourtDefaultPoints = (courtNum: number) => {
-  const first = Math.max(25, 100 - (courtNum - 1) * 15)
-  const second = Math.max(10, first - 25)
+  const first = Math.max(0, 11 - getTeamOverallRank(courtNum, 1))
+  const second = Math.max(0, 11 - getTeamOverallRank(courtNum, 2))
   return { first, second }
 }
 

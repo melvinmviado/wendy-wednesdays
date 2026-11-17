@@ -67,9 +67,9 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
               </tr>
             ) : (
               filteredPlayers.map((player) => {
-                const isTop1 = player.rank === 1
-                const isTop2 = player.rank === 2
-                const isTop3 = player.rank === 3
+                const isTop1 = player.totalPoints > 0 && player.rank === 1
+                const isTop2 = player.totalPoints > 0 && player.rank === 2
+                const isTop3 = player.totalPoints > 0 && player.rank === 3
 
                 // Row backgrounds for top 3 vs normal
                 let rowBg = 'hover:bg-zinc-900/60 transition-colors'
@@ -86,7 +86,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                     {/* 1. Rank */}
                     <td className="py-3 sm:py-3.5 pl-3 sm:pl-5 pr-2 text-center align-middle">
                       <div className="flex justify-center items-center">
-                        <RankBadge rank={player.rank} />
+                        <RankBadge rank={player.rank} points={player.totalPoints} />
                       </div>
                     </td>
 
