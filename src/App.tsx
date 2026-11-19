@@ -4,9 +4,7 @@ import {
   Search,
   UserPlus,
   RotateCcw,
-  ShieldCheck,
-  Lock,
-  LogOut,
+  LogIn,
   Database,
   RefreshCw,
   AlertTriangle,
@@ -20,7 +18,12 @@ import { LeaderboardTable } from './components/LeaderboardTable'
 import { useRankMovement } from './hooks/useRankMovement'
 import { PlayerStatsModal, type SelectedPlayer } from './components/PlayerStatsModal'
 import { AddPlayerModal } from './components/AddPlayerModal'
-import { AdminLoginModal } from './components/AdminLoginModal'
+import { AuthModal } from './components/auth/AuthModal'
+import { UserMenu } from './components/auth/UserMenu'
+import { ProfileDialog } from './components/auth/ProfileDialog'
+import { ClaimSection } from './components/claims/ClaimSection'
+import { ClaimRequestsDialog } from './components/claims/ClaimRequestsDialog'
+import { useClaimQueue } from './hooks/useClaimQueue'
 import { WeeklyEntryScreen } from './components/WeeklyEntryScreen'
 import { WeeklyResultsScreen } from './components/results/WeeklyResultsScreen'
 import { WebsiteLogo } from './components/WebsiteLogo'
@@ -36,7 +39,7 @@ import { PlayerAdminDialogs } from './components/admin/PlayerAdminDialogs'
 import { Toasts } from './components/admin/Toasts'
 
 export default function App() {
-  const { user, signOut, isConfigured } = useAuth()
+  const { signOut, isConfigured, isSignedIn, returnError } = useAuth()
   const { isAdmin } = useIsAdmin()
 
   const [statsPlayer, setStatsPlayer] = useState<SelectedPlayer | null>(null)
@@ -58,6 +61,14 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [isClaimsOpen, setIsClaimsOpen] = useState(false)
+  const claimQueue = useClaimQueue(isAdmin && isConfigured)
+
+  // A failed magic-link / Google return (expired link, denied consent) reopens the dialog with the reason.
+  useEffect(() => {
+    if (returnError) setIsAuthModalOpen(true)
+  }, [returnError])
   const [loadingDb, setLoadingDb] = useState(false)
   const [dbError, setDbError] = useState<string | null>(null)
 
@@ -81,6 +92,7 @@ export default function App() {
           name: item.name,
           weeksPlayed: item.weeks_played ?? 0,
           totalPoints: item.total_points ?? 0,
+          avatarUrl: item.avatar_url ?? null, // resolved in the view; missing before the migration
         }))
         setPlayers(mapped)
         localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))
@@ -221,28 +233,28 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {isAdmin ? (
-              <>
-                <span className="hidden sm:flex items-center gap-1.5 text-ink bg-brand-soft border border-brand px-2.5 py-1 rounded-full">
-                  <ShieldCheck className="w-3.5 h-3.5 text-brand-hover" aria-hidden="true" />
-                  <span className="truncate max-w-[130px]">{user?.email || 'Admin'}</span>
-                </span>
-                <button
-                  onClick={() => {
-                    signOut()
-                    setCurrentView('leaderboard')
-                  }}
-                  className={btnQuiet}
-                  title="Sign out as administrator"
-                >
-                  <LogOut className="w-4 h-4" aria-hidden="true" />
-                  <span>Sign Out</span>
-                </button>
-              </>
+            {isSignedIn ? (
+              <UserMenu
+                onProfile={() => setIsProfileOpen(true)}
+                onAdminTools={() => handleSelectView('weekly-entry')}
+                onClaims={
+                  isConfigured && !claimQueue.unavailable
+                    ? () => {
+                        setIsClaimsOpen(true)
+                        void claimQueue.reload()
+                      }
+                    : undefined
+                }
+                pendingClaims={claimQueue.requests.length}
+                onSignOut={() => {
+                  signOut()
+                  setCurrentView('leaderboard')
+                }}
+              />
             ) : (
-              <button onClick={() => setIsAuthModalOpen(true)} className={btnQuiet}>
-                <Lock className="w-4 h-4 text-brand-hover" aria-hidden="true" />
-                <span>Admin Login</span>
+              <button onClick={() => setIsAuthModalOpen(true)} className={btnBrand}>
+                <LogIn className="w-4 h-4" aria-hidden="true" />
+                <span>Sign in</span>
               </button>
             )}
           </div>
@@ -413,6 +425,7 @@ export default function App() {
                   setResultsWeek(week)
                   setCurrentView('weekly-results')
                 }}
+                renderExtra={(player) => <ClaimSection playerId={player.id} playerName={player.name} />}
               />
             </section>
 
@@ -448,15 +461,19 @@ export default function App() {
       />
 
       {isAdmin && <PlayerAdminDialogs admin={admin} />}
+      {isAdmin && isClaimsOpen && <ClaimRequestsDialog queue={claimQueue} onClose={() => setIsClaimsOpen(false)} />}
       <Toasts toasts={toasts.toasts} onDismiss={toasts.dismiss} />
 
-      <AdminLoginModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={() => {
-          setCurrentView('weekly-entry')
-        }}
-      />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      {isProfileOpen && (
+        <ProfileDialog
+          onClose={() => setIsProfileOpen(false)}
+          onSignOut={() => {
+            signOut()
+            setCurrentView('leaderboard')
+          }}
+        />
+      )}
     </div>
   )
 }

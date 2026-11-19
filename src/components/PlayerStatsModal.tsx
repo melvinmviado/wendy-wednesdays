@@ -17,10 +17,11 @@ interface PlayerStatsModalProps {
   selected: SelectedPlayer | null
   onClose: () => void
   onSelectWeek?: (weekNumber: number) => void // jump to that week in Weekly Results
+  renderExtra?: (player: PlayerScore) => React.ReactNode // content under the stats
 }
 
 // Owns data, focus/scroll behaviour and the exit transition; PlayerStatsDialog does the rendering.
-export const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({ selected, onClose, onSelectWeek }) => {
+export const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({ selected, onClose, onSelectWeek, renderExtra }) => {
   const panelRef = useRef<HTMLDivElement>(null)
   // Keep the last player mounted while the exit transition plays
   const [lingering, setLingering] = useState<SelectedPlayer | null>(null)
@@ -55,6 +56,7 @@ export const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({ selected, on
       onRetry={retry}
       onClose={onClose}
       onSelectWeek={onSelectWeek}
+      extra={renderExtra?.(current.player)}
     />
   )
 }

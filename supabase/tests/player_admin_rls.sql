@@ -1,5 +1,7 @@
--- RLS test for player admin. Run in the Supabase SQL Editor AFTER applying
--- supabase/migrations/20261119000000_player_admin.sql.
+-- RLS test for player admin. Run in the Supabase SQL Editor AFTER applying, in order:
+--   supabase/migrations/20261118000000_profiles_foundation.sql
+--   supabase/migrations/20261119000000_player_admin.sql
+-- "Admin" means profiles.role = 'admin' (via public.is_admin()), not "any signed-in user".
 -- Everything runs in one transaction that is ROLLED BACK at the end: nothing is kept.
 -- Each check raises an exception on failure; "PASS ..." notices show in the Messages tab.
 
@@ -8,8 +10,16 @@ begin;
 -- Fixtures (as the SQL editor's privileged role)
 create temp table t_ids as
 select gen_random_uuid() as active_id, gen_random_uuid() as other_id, gen_random_uuid() as archived_id,
+       gen_random_uuid() as admin_uid, gen_random_uuid() as user_uid,
        'rls-test-' || substr(gen_random_uuid()::text, 1, 8) as suffix;
 grant select on t_ids to anon, authenticated;
+
+-- One admin and one ordinary signed-in user (the signup trigger gives both a 'user' profile first).
+insert into auth.users (id, aud, role, email)
+select admin_uid, 'authenticated', 'authenticated', 'admin-' || suffix || '@test.local' from t_ids
+union all
+select user_uid, 'authenticated', 'authenticated', 'user-' || suffix || '@test.local' from t_ids;
+update public.profiles set role = 'admin' where id = (select admin_uid from t_ids);
 
 insert into public.players (id, name) select active_id, 'Active ' || suffix from t_ids;
 insert into public.players (id, name) select other_id, 'Other ' || suffix from t_ids;
@@ -63,18 +73,50 @@ begin
   raise notice 'PASS anon cannot delete weekly_scores';
 end $$;
 
--- ---------------------------------------------------------------- signed-in user ("admin")
+-- ---------------------------------------------------------------- signed-in user who is NOT an admin
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', gen_random_uuid(), 'role', 'authenticated')::text, true);
+  json_build_object('sub', (select user_uid from t_ids), 'role', 'authenticated')::text, true);
+
+do $$
+declare n int; t t_ids%rowtype;
+begin
+  select * into t from t_ids;
+  if public.is_admin() then raise exception 'FAIL is_admin() true for an ordinary signed-in user'; end if;
+
+  update public.players set name = 'Hacked ' || t.suffix where id = t.active_id;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL ordinary user renamed % players', n; end if;
+
+  update public.players set archived_at = now() where id = t.active_id;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL ordinary user archived % players', n; end if;
+
+  delete from public.players where id = t.active_id;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL ordinary user deleted % players', n; end if;
+
+  begin
+    insert into public.players (name) values ('Sneaky ' || t.suffix);
+    raise exception 'FAIL ordinary user inserted a player';
+  exception when insufficient_privilege then
+    raise notice 'PASS ordinary signed-in user cannot rename, archive, delete or insert players';
+  end;
+end $$;
+
+-- ---------------------------------------------------------------- admin
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  json_build_object('sub', (select admin_uid from t_ids), 'role', 'authenticated')::text, true);
 
 do $$
 declare n int; t t_ids%rowtype;
 begin
   select * into t from t_ids;
 
-  if not public.is_admin() then raise exception 'FAIL is_admin() false for a signed-in user'; end if;
+  if not public.is_admin() then raise exception 'FAIL is_admin() false for an admin'; end if;
 
   update public.players set name = 'Renamed ' || t.suffix where id = t.active_id;
   get diagnostics n = row_count;

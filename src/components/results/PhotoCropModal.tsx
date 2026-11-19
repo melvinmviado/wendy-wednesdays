@@ -7,13 +7,26 @@ interface PhotoCropModalProps {
   file: File
   onCancel: () => void
   onConfirm: (blob: Blob) => void
+  /** Wording and output, so the same cropper serves podium photos and avatars. Defaults are the podium's. */
+  title?: string
+  saveLabel?: string
+  outputSize?: number
+  cropShape?: 'rect' | 'round'
 }
 
 const btn =
   'inline-flex items-center justify-center gap-2 min-h-10 px-4 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
 
-// Square (1:1) crop box: drag to reposition, slider to zoom, then export a 1080 px JPEG.
-export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({ file, onCancel, onConfirm }) => {
+// Square (1:1) crop box: drag to reposition, slider to zoom, then export a square JPEG (1080 px by default).
+export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({
+  file,
+  onCancel,
+  onConfirm,
+  title = 'Crop podium photo',
+  saveLabel = 'Save photo',
+  outputSize = 1080,
+  cropShape = 'rect',
+}) => {
   const [src, setSrc] = useState<string | null>(null)
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -42,7 +55,7 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({ file, onCancel, 
     setBusy(true)
     setError(null)
     try {
-      onConfirm(await getCroppedBlob(src, area))
+      onConfirm(await getCroppedBlob(src, area, outputSize))
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not crop the image')
       setBusy(false)
@@ -56,11 +69,11 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({ file, onCancel, 
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Crop podium photo"
+        aria-label={title}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md max-h-full overflow-y-auto rounded-2xl border border-line bg-surface p-4 sm:p-5 flex flex-col gap-4"
       >
-        <h2 className="text-lg font-black text-ink">Crop podium photo</h2>
+        <h2 className="text-lg font-black text-ink">{title}</h2>
 
         <div className="relative w-full aspect-square overflow-hidden rounded-xl bg-ground touch-none">
           {src && (
@@ -71,6 +84,7 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({ file, onCancel, 
               minZoom={1}
               maxZoom={3}
               aspect={1}
+              cropShape={cropShape}
               showGrid
               onCropChange={setCrop}
               onZoomChange={setZoom}
@@ -111,7 +125,7 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({ file, onCancel, 
           </button>
           <button type="button" className={`${btn} flex-1 bg-brand text-brand-ink hover:bg-brand-hover`} onClick={handleSave} disabled={busy || !area}>
             {busy && <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />}
-            <span>Save photo</span>
+            <span>{saveLabel}</span>
           </button>
         </div>
       </div>

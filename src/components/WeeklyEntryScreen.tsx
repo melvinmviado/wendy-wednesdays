@@ -1,10 +1,10 @@
-import React from 'react'
-import { CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react'
+import React, { useState } from 'react'
+import { CheckCircle2, AlertCircle, ArrowLeft, HelpCircle } from 'lucide-react'
 import { PlayerScore } from '../types/leaderboard'
 import { useWeeklyEntry } from '../hooks/useWeeklyEntry'
 import { SaveResultModal } from './SaveResultModal'
-import { CheckinStage } from './weekly/CheckinStage'
-import { CourtsStage } from './weekly/CourtsStage'
+import { EntryBoard } from './weekly/EntryBoard'
+import { HelpModal } from './weekly/HelpModal'
 import { btnGhost } from './weekly/styles'
 
 interface WeeklyEntryScreenProps {
@@ -23,29 +23,31 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
   onAddNewPlayerToRoster,
 }) => {
   const w = useWeeklyEntry({ roster, onLeaderboardUpdated, onAddNewPlayerToRoster })
+  const [helpOpen, setHelpOpen] = useState(false)
   const {
     selectedWeek,
     setSelectedWeek,
-    stage,
-    setStage,
     saveResult,
     setSaveResult,
     saveSuccessMsg,
     errorMsg,
-    handleProceedToCourts,
     handleSaveWeek,
-    courts,
-    checkedInCount,
+    legacyPlacedCount,
+    dismissLegacyNotice,
   } = w
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
         <button onClick={onBackToLeaderboard} className={btnGhost}>
           <ArrowLeft className="h-4 w-4" />
           <span>Leaderboard</span>
         </button>
         <h2 className="text-lg font-bold text-ink">Doubles Court Cards (2 Teams / Court)</h2>
+        <button onClick={() => setHelpOpen(true)} className={`${btnGhost} min-h-11`}>
+          <HelpCircle className="h-4 w-4" />
+          <span>How it works</span>
+        </button>
       </header>
 
       <section className="flex flex-col gap-3" aria-labelledby="week-label">
@@ -65,7 +67,6 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                 onClick={() => {
                   setSelectedWeek(week)
                   setSaveResult(null)
-                  setStage('checkin')
                 }}
                 className={`rounded-lg border px-2 py-3 text-base font-bold transition-colors cursor-pointer ${
                   isSelected
@@ -80,33 +81,6 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
         </div>
       </section>
 
-      <nav aria-label="Entry stage" className="grid grid-cols-2 border-b border-line">
-        {[
-          { id: 'checkin' as const, n: 1, label: `Check-in (${checkedInCount})`, go: () => setStage('checkin') },
-          { id: 'courts' as const, n: 2, label: `Court Cards (${courts.length} Courts)`, go: handleProceedToCourts },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={t.go}
-            aria-current={stage === t.id ? 'step' : undefined}
-            className={`-mb-px flex items-center justify-center gap-2 border-b-2 px-3 py-3 text-base font-semibold transition-colors cursor-pointer ${
-              stage === t.id
-                ? 'border-brand-hover text-ink'
-                : 'border-transparent text-muted hover:text-ink'
-            }`}
-          >
-            <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full text-sm tabular-nums ${
-                stage === t.id ? 'bg-brand text-brand-ink' : 'bg-raised text-ink-soft'
-              }`}
-            >
-              {t.n}
-            </span>
-            <span>{t.label}</span>
-          </button>
-        ))}
-      </nav>
-
       {saveSuccessMsg && (
         <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-ok/50 bg-surface p-3.5 text-base text-ink">
           <div className="flex items-center gap-2">
@@ -119,6 +93,21 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
         </div>
       )}
 
+      {legacyPlacedCount > 0 && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-gold/60 bg-surface p-3.5 text-base text-ink">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 shrink-0 text-gold" />
+            <span>
+              {legacyPlacedCount} {legacyPlacedCount === 1 ? 'player was' : 'players were'} attended but unseated;
+              they've been placed on courts, please verify.
+            </span>
+          </div>
+          <button onClick={dismissLegacyNotice} className="shrink-0 font-bold text-ink underline hover:text-brand-hover cursor-pointer">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {errorMsg && (
         <div role="alert" className="flex items-center gap-2 rounded-lg border border-brand bg-brand-soft p-3.5 text-base text-ink">
           <AlertCircle className="h-5 w-5 shrink-0 text-brand-hover" />
@@ -126,8 +115,9 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
         </div>
       )}
 
-      {stage === 'checkin' && <CheckinStage w={w} roster={roster} />}
-      {stage === 'courts' && <CourtsStage w={w} />}
+      <EntryBoard w={w} rosterSize={roster.length} />
+
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <SaveResultModal
         result={saveResult}

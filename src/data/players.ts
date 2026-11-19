@@ -14,6 +14,7 @@ interface PlayerRow {
   total_points: number | null
   archived_at: string | null
   updated_at: string | null
+  avatar_url?: string | null // absent until the player_avatars migration is applied
 }
 
 /** Fields an admin may edit. Name only for now. */
@@ -31,6 +32,7 @@ const toPlayer = (row: PlayerRow): PlayerScore => ({
   weeksPlayed: row.weeks_played ?? 0,
   totalPoints: row.total_points ?? 0,
   archivedAt: row.archived_at,
+  avatarUrl: row.avatar_url ?? null,
   updatedAt: row.updated_at ?? undefined,
 })
 

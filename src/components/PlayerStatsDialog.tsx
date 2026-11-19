@@ -1,6 +1,7 @@
 import React, { useId, type RefObject } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import type { PlayerStats } from '../utils/playerStats'
+import { Avatar } from './Avatar'
 import { RankBadge } from './RankBadge'
 import { RankMovement } from './RankMovement'
 import { SeasonSparkline } from './stats/SeasonSparkline'
@@ -23,6 +24,7 @@ interface PlayerStatsDialogProps {
   onRetry: () => void
   onClose: () => void
   onSelectWeek?: (weekNumber: number) => void
+  extra?: React.ReactNode // rendered under the stats (e.g. the claim box)
 }
 
 const Section: React.FC<{ id: string; title: string; children: React.ReactNode }> = ({ id, title, children }) => (
@@ -43,6 +45,7 @@ export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
   onRetry,
   onClose,
   onSelectWeek,
+  extra,
 }) => {
   const titleId = useId()
   const { player, rank, tied, movement } = selected
@@ -71,6 +74,7 @@ export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
         <header className="flex items-center gap-3 border-b border-line p-4">
           <RankBadge rank={rank} points={player.totalPoints} tied={tied} />
           <RankMovement movement={movement} />
+          <Avatar name={player.name} avatarUrl={player.avatarUrl} size={40} eager />
           <h2
             id={titleId}
             title={player.name}
@@ -131,6 +135,7 @@ export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
               </Section>
             </div>
           ) : null}
+          {extra}
         </div>
       </div>
     </div>

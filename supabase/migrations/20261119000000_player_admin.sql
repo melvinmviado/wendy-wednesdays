@@ -7,8 +7,9 @@
 --   * Only the name is editable.
 --   * Hard delete is always allowed at the DB level (weekly_scores rows cascade). The
 --     "strong confirmation" lives in the UI.
---   * Any authenticated user is an admin, expressed through public.is_admin() so it can
---     be tightened later in one place.
+--   * Admin identity is public.is_admin(), defined in 20261118000000_profiles_foundation.sql
+--     (JWT app_metadata role, falling back to profiles.role). THAT MIGRATION MUST BE APPLIED
+--     FIRST; section 2 below refuses to run without it.
 
 begin;
 
@@ -34,18 +35,16 @@ for each row execute function public.touch_updated_at();
 -- so updated_at moves on score changes too. It means "row last changed", not "last renamed".
 
 -- 2. Admin identity --------------------------------------------------------------------
--- Single seam for "who is an admin". Today: any signed-in Supabase user (matches the
--- current app, where isAdmin = Boolean(user)). To restrict later, change only this body:
---
---   create table public.admins (user_id uuid primary key references auth.users(id) on delete cascade);
---   ... using (exists (select 1 from public.admins a where a.user_id = auth.uid()))
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-as $$
-  select auth.uid() is not null;
-$$;
+-- Not defined here any more: a second definition would fight the profiles migration. Fail
+-- early with a readable message if the prerequisite migration has not been applied.
+do $$
+begin
+  if to_regprocedure('public.is_admin()') is null
+     or to_regclass('public.profiles') is null then
+    raise exception
+      'Apply 20261118000000_profiles_foundation.sql first (public.is_admin() / public.profiles are missing)';
+  end if;
+end $$;
 
 -- 3. RLS on players --------------------------------------------------------------------
 alter table public.players enable row level security;
@@ -55,6 +54,10 @@ drop policy if exists "Allow public read players" on public.players;
 drop policy if exists "Allow authenticated admin insert players" on public.players;
 drop policy if exists "Allow authenticated admin update players" on public.players;
 drop policy if exists "Allow authenticated admin delete players" on public.players;
+-- The new names too, so the migration can be re-run.
+drop policy if exists "Admins insert players" on public.players;
+drop policy if exists "Admins update players" on public.players;
+drop policy if exists "Admins delete players" on public.players;
 
 -- Everyone (including anonymous visitors) can read, archived rows included. The app and
 -- the leaderboard view filter archived players; past weekly results still need their names.
@@ -106,16 +109,28 @@ alter table public.players
 
 -- 5. Leaderboard hides archived players ------------------------------------------------
 -- Same columns and order as before, so create or replace is allowed.
-create or replace view public.season_leaderboard as
-select
-  p.id,
-  p.name,
-  count(w.week_number) filter (where w.attended = true)::integer as weeks_played,
-  coalesce(sum(w.points) filter (where w.attended = true), 0)::integer as total_points
-from public.players p
-left join public.weekly_scores w on p.id = w.player_id
-where p.archived_at is null
-group by p.id, p.name
-order by total_points desc, weeks_played desc, p.name asc;
+-- Skipped when 20261122000000_player_avatars.sql has already added avatar_url to the view:
+-- Postgres cannot drop a view column, and re-running this older file must not regress it.
+do $view$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'season_leaderboard' and column_name = 'avatar_url'
+  ) then
+    raise notice 'season_leaderboard already has avatar_url; leaving the newer definition in place';
+  else
+    create or replace view public.season_leaderboard as
+    select
+      p.id,
+      p.name,
+      count(w.week_number) filter (where w.attended = true)::integer as weeks_played,
+      coalesce(sum(w.points) filter (where w.attended = true), 0)::integer as total_points
+    from public.players p
+    left join public.weekly_scores w on p.id = w.player_id
+    where p.archived_at is null
+    group by p.id, p.name
+    order by total_points desc, weeks_played desc, p.name asc;
+  end if;
+end $view$;
 
 commit;

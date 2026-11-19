@@ -17,7 +17,7 @@ export const AddPlayerModal: React.FC<AddPlayerModalProps> = ({
   onAddPlayer,
   onRequireAuth,
 }) => {
-  const { isAdmin, user } = useAuth()
+  const { isAdmin, isSignedIn, user } = useAuth()
   const [name, setName] = useState('')
   const [weeksPlayed, setWeeksPlayed] = useState('1')
   const [totalPoints, setTotalPoints] = useState('')
@@ -43,20 +43,25 @@ export const AddPlayerModal: React.FC<AddPlayerModalProps> = ({
             <Lock className="w-6 h-6" />
           </div>
 
-          <h3 className="text-lg font-bold text-ink mb-2">Administrator Access Required</h3>
+          <h3 className="text-lg font-bold text-ink mb-2">
+            {isSignedIn ? 'Administrator Access Required' : 'Sign In Required'}
+          </h3>
           <p className="text-sm text-ink-soft leading-relaxed mb-6">
-            Only authenticated administrators can add new players or record scores to the Wendy Wednesdays season leaderboard.
+            {isSignedIn
+              ? "Your account doesn't have admin permissions, so it can't add players or record scores."
+              : 'Only administrators can add new players or record scores. Sign in with an admin account to continue.'}
           </p>
 
           <div className="flex flex-col gap-2.5">
             <button
+              hidden={isSignedIn}
               onClick={() => {
                 onClose()
                 onRequireAuth()
               }}
               className="w-full py-2.5 px-4 rounded-xl bg-brand hover:bg-brand-hover motion-safe:active:scale-[0.97] text-ink font-bold text-sm transition-colors cursor-pointer"
             >
-              Sign In as Administrator
+              Sign In
             </button>
             <button
               onClick={onClose}

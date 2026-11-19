@@ -1,7 +1,16 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { PlayerScore, CourtData, WeeklyScoreRecord } from '../types/leaderboard'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import { getTeamOverallRank } from '../utils/scoring'
+import {
+  buildCourtsFromRecords,
+  buildSaveRecords,
+  getCourtWarnings,
+  getSeatedPlayerIds,
+  moveOrSwapPlayers,
+  seatPlayer,
+  unseatPlayer,
+  type SavedPlacement,
+} from '../utils/weeklyEntry'
 import type { SaveResult } from '../components/SaveResultModal'
 import { persistActivePlayers } from '../data/players'
 
@@ -11,14 +20,7 @@ interface UseWeeklyEntryArgs {
   onAddNewPlayerToRoster: (newPlayer: PlayerScore) => void
 }
 
-// Default points: 10 for the overall 1st place team, then 1 fewer for each following team
-// (Court 1 winners 10, Court 1 runners-up 9, Court 2 winners 8, ...), floored at 0.
-// Both players on a team share the team's points.
-const getCourtDefaultPoints = (courtNum: number) => {
-  const first = Math.max(0, 11 - getTeamOverallRank(courtNum, 1))
-  const second = Math.max(0, 11 - getTeamOverallRank(courtNum, 2))
-  return { first, second }
-}
+const UNKNOWN_PLAYER = 'Archived player'
 
 export const useWeeklyEntry = ({
   roster,
@@ -27,16 +29,16 @@ export const useWeeklyEntry = ({
 }: UseWeeklyEntryArgs) => {
   // Navigation & Week Selection
   const [selectedWeek, setSelectedWeek] = useState<number>(1)
-  const [stage, setStage] = useState<'checkin' | 'courts'>('checkin')
 
-  // Stage 1: Checked-in Player IDs
-  const [checkedInPlayerIds, setCheckedInPlayerIds] = useState<Set<string>>(new Set())
+  // Roster search / quick add (attendance is derived from court placement)
   const [newPlayerName, setNewPlayerName] = useState('')
   const [searchFilter, setSearchFilter] = useState('')
 
-  // Stage 2: Court Data (Each court has 2 teams of 2 players: 1st place team & 2nd place team)
+  // Court Data (Each court has 2 teams of 2 players: 1st place team & 2nd place team)
   const [courts, setCourts] = useState<CourtData[]>([])
+  // Empty slot the next roster tap should fill, and seated slot picked for swap/move/remove
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
+  const [pickedSlotId, setPickedSlotId] = useState<string | null>(null)
 
   // Status & Feedback
   const [saving, setSaving] = useState(false)
@@ -44,58 +46,28 @@ export const useWeeklyEntry = ({
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null)
+  // How many legacy attended-but-unseated players were auto-placed on load (0 = no notice)
+  const [legacyPlacedCount, setLegacyPlacedCount] = useState(0)
 
-  // Initialize a blank CourtData with 4 slots (2 in 1st place, 2 in 2nd place)
-  const buildEmptyCourt = useCallback((courtNum: number): CourtData => {
-    const { first, second } = getCourtDefaultPoints(courtNum)
-    return {
-      courtNumber: courtNum,
-      firstPlacePoints: first,
-      secondPlacePoints: second,
-      slots: [
-        {
-          slotId: `c${courtNum}-t1-p1`,
-          teamPlace: 1,
-          playerIndex: 1,
-          playerId: null,
-          playerName: null,
-          points: first,
-        },
-        {
-          slotId: `c${courtNum}-t1-p2`,
-          teamPlace: 1,
-          playerIndex: 2,
-          playerId: null,
-          playerName: null,
-          points: first,
-        },
-        {
-          slotId: `c${courtNum}-t2-p1`,
-          teamPlace: 2,
-          playerIndex: 1,
-          playerId: null,
-          playerName: null,
-          points: second,
-        },
-        {
-          slotId: `c${courtNum}-t2-p2`,
-          teamPlace: 2,
-          playerIndex: 2,
-          playerId: null,
-          playerName: null,
-          points: second,
-        },
-      ],
-    }
-  }, [])
+  // Roster is read through a ref so a roster change (e.g. quick add) never reloads the week
+  // and wipes unsaved seating.
+  const rosterRef = useRef(roster)
+  // Players with an attended row for the active week as last loaded/saved. Lets save mark
+  // players who were removed from a court (even if no longer on the roster) as not attended.
+  const savedAttendeeIdsRef = useRef<Set<string>>(new Set())
+  const loadSeqRef = useRef(0)
 
   // Load existing week entries from Supabase or localStorage
   const loadWeekData = useCallback(async (week: number) => {
+    const seq = ++loadSeqRef.current
     setLoadingWeek(true)
     setErrorMsg(null)
     setSaveSuccessMsg(null)
+    setLegacyPlacedCount(0)
 
     try {
+      let attendedRows: SavedPlacement[] = []
+
       if (isSupabaseConfigured) {
         const { data, error } = await supabase
           .from('weekly_scores')
@@ -104,193 +76,85 @@ export const useWeeklyEntry = ({
 
         if (error) throw error
 
-        const attendedIds = new Set<string>()
-        const assignedRecords: {
-          playerId: string
-          courtNumber: number
-          finishOrder: number
-          points: number
-        }[] = []
-
-        if (data) {
-          data.forEach((row) => {
-            if (row.attended) {
-              attendedIds.add(row.player_id)
-              if (row.court_number && row.finish_order) {
-                assignedRecords.push({
-                  playerId: row.player_id,
-                  courtNumber: row.court_number,
-                  finishOrder: row.finish_order,
-                  points: row.points,
-                })
-              }
-            }
-          })
-        }
-
-        setCheckedInPlayerIds(attendedIds)
-
-        // Group assigned players by court
-        const courtCount = Math.max(1, Math.ceil(attendedIds.size / 4))
-        const newCourts: CourtData[] = []
-
-        for (let i = 0; i < courtCount; i++) {
-          const courtNum = i + 1
-          const court = buildEmptyCourt(courtNum)
-          const courtRecords = assignedRecords.filter((r) => r.courtNumber === courtNum)
-
-          // 1st place team records (finish_order === 1)
-          const firstPlaceRecords = courtRecords.filter((r) => r.finishOrder === 1)
-          if (firstPlaceRecords.length > 0) {
-            court.firstPlacePoints = firstPlaceRecords[0].points
-            court.slots[0].points = firstPlaceRecords[0].points
-            court.slots[1].points = firstPlaceRecords[0].points
-
-            if (firstPlaceRecords[0]) {
-              const p = roster.find((x) => x.id === firstPlaceRecords[0].playerId)
-              court.slots[0].playerId = firstPlaceRecords[0].playerId
-              court.slots[0].playerName = p ? p.name : 'Archived player'
-            }
-            if (firstPlaceRecords[1]) {
-              const p = roster.find((x) => x.id === firstPlaceRecords[1].playerId)
-              court.slots[1].playerId = firstPlaceRecords[1].playerId
-              court.slots[1].playerName = p ? p.name : 'Archived player'
-            }
-          }
-
-          // 2nd place team records (finish_order === 2)
-          const secondPlaceRecords = courtRecords.filter((r) => r.finishOrder === 2)
-          if (secondPlaceRecords.length > 0) {
-            court.secondPlacePoints = secondPlaceRecords[0].points
-            court.slots[2].points = secondPlaceRecords[0].points
-            court.slots[3].points = secondPlaceRecords[0].points
-
-            if (secondPlaceRecords[0]) {
-              const p = roster.find((x) => x.id === secondPlaceRecords[0].playerId)
-              court.slots[2].playerId = secondPlaceRecords[0].playerId
-              court.slots[2].playerName = p ? p.name : 'Archived player'
-            }
-            if (secondPlaceRecords[1]) {
-              const p = roster.find((x) => x.id === secondPlaceRecords[1].playerId)
-              court.slots[3].playerId = secondPlaceRecords[1].playerId
-              court.slots[3].playerName = p ? p.name : 'Archived player'
-            }
-          }
-
-          newCourts.push(court)
-        }
-
-        setCourts(newCourts)
+        attendedRows = (data ?? [])
+          .filter((row) => row.attended)
+          .map((row) => ({
+            playerId: row.player_id,
+            courtNumber: row.court_number,
+            finishOrder: row.finish_order,
+            points: row.points,
+          }))
       } else {
         // Demo mode from localStorage
-        const storedKey = `wendy_weekly_scores_w${week}`
-        const saved = localStorage.getItem(storedKey)
-        const attendedIds = new Set<string>()
-        const assignedRecords: WeeklyScoreRecord[] = []
-
+        const saved = localStorage.getItem(`wendy_weekly_scores_w${week}`)
         if (saved) {
           try {
             const parsed: WeeklyScoreRecord[] = JSON.parse(saved)
-            parsed.forEach((s) => {
-              if (s.attended) {
-                attendedIds.add(s.playerId)
-                if (s.courtNumber && s.finishOrder) {
-                  assignedRecords.push(s)
-                }
-              }
-            })
+            attendedRows = parsed.filter((s) => s.attended)
           } catch {
             // ignore
           }
         }
-
-        setCheckedInPlayerIds(attendedIds)
-
-        const courtCount = Math.max(1, Math.ceil(attendedIds.size / 4))
-        const newCourts: CourtData[] = []
-
-        for (let i = 0; i < courtCount; i++) {
-          const courtNum = i + 1
-          const court = buildEmptyCourt(courtNum)
-          const courtRecords = assignedRecords.filter((r) => r.courtNumber === courtNum)
-
-          const firstPlaceRecords = courtRecords.filter((r) => r.finishOrder === 1)
-          if (firstPlaceRecords.length > 0) {
-            court.firstPlacePoints = firstPlaceRecords[0].points
-            court.slots[0].points = firstPlaceRecords[0].points
-            court.slots[1].points = firstPlaceRecords[0].points
-
-            if (firstPlaceRecords[0]) {
-              const p = roster.find((x) => x.id === firstPlaceRecords[0].playerId)
-              court.slots[0].playerId = firstPlaceRecords[0].playerId
-              court.slots[0].playerName = p ? p.name : 'Archived player'
-            }
-            if (firstPlaceRecords[1]) {
-              const p = roster.find((x) => x.id === firstPlaceRecords[1].playerId)
-              court.slots[1].playerId = firstPlaceRecords[1].playerId
-              court.slots[1].playerName = p ? p.name : 'Archived player'
-            }
-          }
-
-          const secondPlaceRecords = courtRecords.filter((r) => r.finishOrder === 2)
-          if (secondPlaceRecords.length > 0) {
-            court.secondPlacePoints = secondPlaceRecords[0].points
-            court.slots[2].points = secondPlaceRecords[0].points
-            court.slots[3].points = secondPlaceRecords[0].points
-
-            if (secondPlaceRecords[0]) {
-              const p = roster.find((x) => x.id === secondPlaceRecords[0].playerId)
-              court.slots[2].playerId = secondPlaceRecords[0].playerId
-              court.slots[2].playerName = p ? p.name : 'Archived player'
-            }
-            if (secondPlaceRecords[1]) {
-              const p = roster.find((x) => x.id === secondPlaceRecords[1].playerId)
-              court.slots[3].playerId = secondPlaceRecords[1].playerId
-              court.slots[3].playerName = p ? p.name : 'Archived player'
-            }
-          }
-
-          newCourts.push(court)
-        }
-
-        setCourts(newCourts)
       }
+
+      if (seq !== loadSeqRef.current) return // a newer week load superseded this one
+
+      const nameOf = (id: string) =>
+        rosterRef.current.find((p) => p.id === id)?.name ?? UNKNOWN_PLAYER
+      const { courts: loaded, unseatedCount } = buildCourtsFromRecords(attendedRows, nameOf)
+
+      savedAttendeeIdsRef.current = new Set(attendedRows.map((r) => r.playerId))
+      setCourts(loaded)
+      setSelectedSlotId(null)
+      setPickedSlotId(null)
+      setLegacyPlacedCount(unseatedCount)
     } catch (err: unknown) {
+      if (seq !== loadSeqRef.current) return
       const msg = err instanceof Error ? err.message : 'Error loading week data'
       setErrorMsg(msg)
     } finally {
-      setLoadingWeek(false)
+      if (seq === loadSeqRef.current) setLoadingWeek(false)
     }
-  }, [roster, buildEmptyCourt])
+  }, [])
 
-  // Reload when active week changes
+  // Reload only when the active week changes
   useEffect(() => {
     loadWeekData(selectedWeek)
   }, [selectedWeek, loadWeekData])
 
-  // Toggle player check-in
-  const togglePlayerCheckin = (playerId: string) => {
-    setCheckedInPlayerIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(playerId)) {
-        next.delete(playerId)
-        // If unchecking, also remove from court slots
-        setCourts((currCourts) =>
-          currCourts.map((c) => ({
-            ...c,
-            slots: c.slots.map((s) =>
-              s.playerId === playerId ? { ...s, playerId: null, playerName: null } : s
-            ),
-          }))
-        )
-      } else {
-        next.add(playerId)
-      }
-      return next
+  // Keep the roster ref current, and fill in names for players seated before the roster arrived
+  useEffect(() => {
+    rosterRef.current = roster
+    setCourts((prev) => {
+      let changed = false
+      const next = prev.map((c) => ({
+        ...c,
+        slots: c.slots.map((s) => {
+          if (!s.playerId || s.playerName !== UNKNOWN_PLAYER) return s
+          const p = roster.find((x) => x.id === s.playerId)
+          if (!p) return s
+          changed = true
+          return { ...s, playerName: p.name }
+        }),
+      }))
+      return changed ? next : prev
     })
+  }, [roster])
+
+  // Seat everyone on the roster in order (replaces the current placement, so confirm first)
+  const handleSelectAll = () => {
+    if (
+      attendedPlayerIds.size > 0 &&
+      !window.confirm('Seat everyone in roster order? This replaces the current court placement.')
+    ) {
+      return
+    }
+    setCourts(roster.reduce((acc, p) => seatPlayer(acc, p), [] as CourtData[]))
+    setSelectedSlotId(null)
+    setPickedSlotId(null)
   }
 
-  // Quick add player to roster & immediately check them in
+  // Quick add player to roster & immediately seat them
   const handleQuickAddPlayer = async (e: React.FormEvent) => {
     e.preventDefault()
     const name = newPlayerName.trim()
@@ -322,8 +186,8 @@ export const useWeeklyEntry = ({
 
       onAddNewPlayerToRoster(newPlayer)
 
-      // Automatically check in the newly created player!
-      setCheckedInPlayerIds((prev) => new Set(prev).add(createdId))
+      // Automatically seat the newly created player!
+      setCourts((prev) => seatPlayer(prev, newPlayer))
       setNewPlayerName('')
       setSaveSuccessMsg(`Added "${name}" and checked into Week ${selectedWeek}!`)
       setTimeout(() => setSaveSuccessMsg(null), 3000)
@@ -333,63 +197,8 @@ export const useWeeklyEntry = ({
     }
   }
 
-  // Transition from Stage 1 to Stage 2 (build required courts: 4 players per court)
-  const handleProceedToCourts = () => {
-    if (checkedInPlayerIds.size === 0) {
-      setErrorMsg('Please check in at least 1 player before assigning courts.')
-      return
-    }
-
-    const courtCount = Math.max(1, Math.ceil(checkedInPlayerIds.size / 4))
-
-    // Preserve existing assignments if they exist and are still checked in
-    setCourts((prevCourts) => {
-      return Array.from({ length: courtCount }, (_, i) => {
-        const courtNum = i + 1
-        const existingCourt = prevCourts.find((c) => c.courtNumber === courtNum)
-        const emptyCourt = buildEmptyCourt(courtNum)
-
-        if (!existingCourt) return emptyCourt
-
-        return {
-          ...existingCourt,
-          slots: emptyCourt.slots.map((s, idx) => {
-            const existingSlot = existingCourt.slots[idx]
-            const isValid =
-              existingSlot?.playerId && checkedInPlayerIds.has(existingSlot.playerId)
-
-            return {
-              ...s,
-              playerId: isValid ? existingSlot.playerId : null,
-              playerName: isValid ? existingSlot.playerName : null,
-              points: existingSlot ? existingSlot.points : s.points,
-            }
-          }),
-        }
-      })
-    })
-
-    setErrorMsg(null)
-    setStage('courts')
-  }
-
-  // Find all assigned player IDs across all court slots
-  const assignedPlayerIds = useMemo(() => {
-    const ids = new Set<string>()
-    courts.forEach((c) => {
-      c.slots.forEach((s) => {
-        if (s.playerId) ids.add(s.playerId)
-      })
-    })
-    return ids
-  }, [courts])
-
-  // Players currently in the top unassigned bench dock (checked-in minus assigned)
-  const unassignedBenchPlayers = useMemo(() => {
-    return roster.filter(
-      (p) => checkedInPlayerIds.has(p.id) && !assignedPlayerIds.has(p.id)
-    )
-  }, [roster, checkedInPlayerIds, assignedPlayerIds])
+  // Court placement is the single source of truth for attendance (derived, never duplicated)
+  const attendedPlayerIds = useMemo(() => getSeatedPlayerIds(courts), [courts])
 
   // Next available court slot in finishing order:
   // Court 1: 1st Place Team (Partner 1) -> 1st Place Team (Partner 2) -> 2nd Place Team (Partner 1) -> 2nd Place Team (Partner 2)
@@ -405,62 +214,40 @@ export const useWeeklyEntry = ({
     return null
   }, [courts])
 
-  // Tap name in top bench dock to place in finishing order
+  // Tap an unseated roster name to seat them: the targeted empty slot if any, else the next slot
+  // (adds a court when every slot is full)
   const handleBenchPlayerTap = (player: PlayerScore) => {
-    // If user clicked a specific slot target, fill that slot
-    let targetSlotId = selectedSlotId
-    if (!targetSlotId || !isSlotEmptyById(targetSlotId)) {
-      // Otherwise fill next available slot in finishing order
-      targetSlotId = nextEmptySlot ? nextEmptySlot.slotId : null
-    }
-
-    if (!targetSlotId) {
-      setErrorMsg('All court slots are currently filled! Unassign a player to place another.')
-      return
-    }
-
-    setCourts((prev) =>
-      prev.map((court) => ({
-        ...court,
-        slots: court.slots.map((slot) => {
-          if (slot.slotId !== targetSlotId) return slot
-          return {
-            ...slot,
-            playerId: player.id,
-            playerName: player.name,
-          }
-        }),
-      }))
-    )
-
-    // Clear target slot selection after filling
+    const target = selectedSlotId
+    setCourts((prev) => seatPlayer(prev, player, target))
     setSelectedSlotId(null)
+    setPickedSlotId(null)
     setErrorMsg(null)
   }
 
-  const isSlotEmptyById = (slotId: string) => {
-    for (const c of courts) {
-      const s = c.slots.find((x) => x.slotId === slotId)
-      if (s) return !s.playerId
+  // Tap a court slot. Seated: pick it (then tap another seated slot to swap, or an empty slot to
+  // move). Empty: move the picked player there, or target it for the next roster tap.
+  const handleSlotTap = (slotId: string) => {
+    const slot = courts.flatMap((c) => c.slots).find((s) => s.slotId === slotId)
+    if (!slot) return
+    if (pickedSlotId) {
+      if (pickedSlotId !== slotId) setCourts((prev) => moveOrSwapPlayers(prev, pickedSlotId, slotId))
+      setPickedSlotId(null)
+      return
     }
-    return false
+    if (slot.playerId) {
+      setPickedSlotId(slotId)
+      setSelectedSlotId(null)
+    } else {
+      setSelectedSlotId((cur) => (cur === slotId ? null : slotId))
+    }
   }
 
-  // Remove player from court slot back to bench dock
+  // Remove player from their court slot (they become absent unless re-seated)
   const handleRemoveFromSlot = (slotId: string) => {
-    setCourts((prev) =>
-      prev.map((court) => ({
-        ...court,
-        slots: court.slots.map((slot) => {
-          if (slot.slotId !== slotId) return slot
-          return {
-            ...slot,
-            playerId: null,
-            playerName: null,
-          }
-        }),
-      }))
-    )
+    const playerId = courts.flatMap((c) => c.slots).find((s) => s.slotId === slotId)?.playerId
+    if (!playerId) return
+    setCourts((prev) => unseatPlayer(prev, playerId))
+    setPickedSlotId(null)
   }
 
   // Adjust points for an entire Team (updating both players who share that place)
@@ -502,67 +289,36 @@ export const useWeeklyEntry = ({
         }))
       )
       setSelectedSlotId(null)
+      setPickedSlotId(null)
     }
   }
 
   // Save Week & Bulk Upsert to Database
   const handleSaveWeek = async () => {
+    // Incomplete courts are allowed, but the admin must confirm
+    if (
+      attendedPlayerIds.size === 0 &&
+      !window.confirm(`No players are seated. Saving will mark everyone absent for Week ${selectedWeek}.`)
+    ) {
+      return
+    }
+    const warnings = getCourtWarnings(courts)
+    if (warnings.length > 0 && !window.confirm(`${warnings.join('\n')}\n\nSave anyway?`)) return
+
     setSaving(true)
     setErrorMsg(null)
     setSaveSuccessMsg(null)
     setSaveResult(null)
 
     try {
-      const recordsToUpsert: {
-        player_id: string
-        week_number: number
-        attended: boolean
-        court_number: number | null
-        finish_order: number | null
-        points: number
-      }[] = []
-
-      // 1. All players placed on courts (two players per court share finish_order: 1, two share finish_order: 2)
-      courts.forEach((c) => {
-        c.slots.forEach((s) => {
-          if (s.playerId) {
-            recordsToUpsert.push({
-              player_id: s.playerId,
-              week_number: selectedWeek,
-              attended: true,
-              court_number: c.courtNumber,
-              finish_order: s.teamPlace, // 1 for 1st place team, 2 for 2nd place team
-              points: s.points, // Shared points!
-            })
-          }
-        })
-      })
-
-      // 2. Any checked-in bench players who weren't assigned to a court
-      unassignedBenchPlayers.forEach((p) => {
-        recordsToUpsert.push({
-          player_id: p.id,
-          week_number: selectedWeek,
-          attended: true,
-          court_number: null,
-          finish_order: null,
-          points: 0,
-        })
-      })
-
-      // 3. Any roster players who were NOT checked in
-      roster.forEach((p) => {
-        if (!checkedInPlayerIds.has(p.id)) {
-          recordsToUpsert.push({
-            player_id: p.id,
-            week_number: selectedWeek,
-            attended: false,
-            court_number: null,
-            finish_order: null,
-            points: 0,
-          })
-        }
-      })
+      // attended = true exactly for seated players; everyone else (including players removed from
+      // a court since the last save) is written as not attended so stats stay correct.
+      const recordsToUpsert = buildSaveRecords(
+        courts,
+        roster,
+        selectedWeek,
+        savedAttendeeIdsRef.current
+      )
 
       if (isSupabaseConfigured) {
         const { error: upsertError } = await supabase
@@ -614,6 +370,8 @@ export const useWeeklyEntry = ({
         onLeaderboardUpdated()
       }
 
+      savedAttendeeIdsRef.current = new Set(attendedPlayerIds)
+      setLegacyPlacedCount(0)
       setSaveResult({
         status: 'success',
         message: `Saved ${recordsToUpsert.filter((r) => r.attended).length} players across ${courts.length} courts. Leaderboard recomputed.`,
@@ -641,20 +399,21 @@ export const useWeeklyEntry = ({
     return roster.filter((p) => p.name.toLowerCase().includes(q))
   }, [roster, searchFilter])
 
-  // Count summaries
-  const checkedInCount = checkedInPlayerIds.size
-  const courtsRequired = Math.max(1, Math.ceil(checkedInCount / 4))
-  const assignedCount = assignedPlayerIds.size
+  // Count summaries ("12 players, 3 courts")
+  const attendedCount = attendedPlayerIds.size
+  const courtCount = attendedCount === 0 ? 0 : courts.length
 
   return {
     selectedWeek,
     setSelectedWeek,
-    stage,
-    setStage,
     saveResult,
     setSaveResult,
-    checkedInPlayerIds,
-    setCheckedInPlayerIds,
+    attendedPlayerIds,
+    attendedCount,
+    courtCount,
+    handleSelectAll,
+    pickedSlotId,
+    handleSlotTap,
     newPlayerName,
     setNewPlayerName,
     searchFilter,
@@ -666,10 +425,9 @@ export const useWeeklyEntry = ({
     loadingWeek,
     saveSuccessMsg,
     errorMsg,
-    togglePlayerCheckin,
+    legacyPlacedCount,
+    dismissLegacyNotice: () => setLegacyPlacedCount(0),
     handleQuickAddPlayer,
-    handleProceedToCourts,
-    unassignedBenchPlayers,
     nextEmptySlot,
     handleBenchPlayerTap,
     handleRemoveFromSlot,
@@ -677,9 +435,6 @@ export const useWeeklyEntry = ({
     handleResetCourtAssignments,
     handleSaveWeek,
     filteredRoster,
-    checkedInCount,
-    courtsRequired,
-    assignedCount,
   }
 }
 

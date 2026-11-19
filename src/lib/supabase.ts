@@ -18,9 +18,15 @@ export const isSupabaseConfigured = Boolean(
 )
 
 // Fallback dummy client if credentials aren't provided yet so app doesn't crash on import
+// Auth options are spelled out (they match supabase-js's defaults, so behavior is unchanged).
+// flowType stays 'implicit': magic links keep working when opened on another device.
+// The placeholder client must stay inert: no stored session, no refresh timer, no URL parsing.
 export const supabase: SupabaseClient = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
+    })
   : createClient(
       supabaseUrl || 'https://placeholder.supabase.co',
-      supabaseAnonKey || 'placeholder-anon-key'
+      supabaseAnonKey || 'placeholder-anon-key',
+      { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
     )

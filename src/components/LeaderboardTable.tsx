@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
 import { PlayerScore } from '../types/leaderboard'
+import { Avatar } from './Avatar'
 import { RankBadge } from './RankBadge'
 import type { SelectedPlayer } from './PlayerStatsModal'
 import { rankPlayers, rankSpoken, type RankMovement as Movement } from '../utils/ranking'
@@ -103,12 +104,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
 
                     <td className="py-3 sm:py-3.5 px-3 sm:px-4 align-middle">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          aria-hidden="true"
-                          className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 select-none bg-raised ${tone.ink}`}
-                        >
-                          {player.name.charAt(0)}
-                        </div>
+                        <Avatar name={player.name} avatarUrl={player.avatarUrl} size={36} fallbackClassName={`bg-raised ${tone.ink}`} />
                         <span className={`truncate ${podium ? `font-bold ${tone.ink}` : 'font-semibold text-ink'}`}>
                           {player.name}
                         </span>

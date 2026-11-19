@@ -49,10 +49,11 @@ VITE_SUPABASE_ANON_KEY=your-anon-public-key
 
 For **Cloudflare Pages**, also add these under **Settings > Environment variables** in your Cloudflare dashboard.
 
-### 3. Creating an Administrator Account
-- For security, user self-registration is disabled in the app.
-- Administrators are created directly from the **Authentication > Users** tab in your [Supabase Dashboard](https://supabase.com/dashboard) (click **Add user** > **Create user** with an email and password).
-- Once created, administrators can sign in via **Admin Login** in the app using their email and password to add players and record scores.
+### 3. Accounts and administrators
+- Anyone can sign in or create an account from **Sign in** in the app, with email and password, an emailed link, or Google. Regular accounts are read-only.
+- Admin access comes from `profiles.role = 'admin'` (apply the migrations in `supabase/migrations/` in timestamp order). Promote someone in the SQL editor: `update public.profiles set role = 'admin' where id = '<user uuid>';`. Admins use the same sign-in form.
+- Google sign-in needs the Google provider enabled in **Authentication > Providers**. Until then the button shows "Google sign-in isn't available yet"; set `VITE_GOOGLE_AUTH_ENABLED=false` to hide it.
+- Add your site URL (and any Cloudflare preview URLs) under **Authentication > URL Configuration** so email links and Google return to the app.
 
 ---
 
