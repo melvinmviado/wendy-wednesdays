@@ -1,35 +1,22 @@
 import React, { useMemo } from 'react'
 import { PlayerScore } from '../types/leaderboard'
 import { RankBadge } from './RankBadge'
+import type { SelectedPlayer } from './PlayerStatsModal'
+import { rankPlayers, rankSpoken } from '../utils/ranking'
 
 interface LeaderboardTableProps {
   players: PlayerScore[]
   searchQuery?: string
+  onSelectPlayer?: (selected: SelectedPlayer) => void
 }
 
 export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
   players,
   searchQuery = '',
+  onSelectPlayer,
 }) => {
-  // Sort players by total season points descending
-  const sortedPlayers = useMemo(() => {
-    return [...players].sort((a, b) => {
-      if (b.totalPoints !== a.totalPoints) {
-        return b.totalPoints - a.totalPoints
-      }
-      return b.weeksPlayed - a.weeksPlayed || a.name.localeCompare(b.name)
-    })
-  }, [players])
-
-  // Map to assign actual season rank based on total points
-  const rankedPlayers = useMemo(() => {
-    return sortedPlayers.map((player) => {
-      // Competition ranking: ties share the rank of the first player with equal points
-      const firstIndex = sortedPlayers.findIndex((p) => p.totalPoints === player.totalPoints)
-      const count = sortedPlayers.filter((p) => p.totalPoints === player.totalPoints).length
-      return { ...player, rank: firstIndex + 1, tied: count > 1 }
-    })
-  }, [sortedPlayers])
+  // Sorted by season points, with competition ranks (ties share a rank)
+  const rankedPlayers = useMemo(() => rankPlayers(players), [players])
 
   // Filter based on search query if present
   const filteredPlayers = useMemo(() => {
@@ -84,7 +71,20 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                 const podium = isTop1 || isTop2 || isTop3
 
                 return (
-                  <tr key={player.id} className={`transition-colors ${tone.row}`}>
+                  <tr
+                    key={player.id}
+                    tabIndex={0}
+                    aria-label={`${player.name}, ${rankSpoken(player.rank, player.tied)}. Open player stats`}
+                    onClick={() => onSelectPlayer?.({ player, rank: player.rank, tied: player.tied })}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onSelectPlayer?.({ player, rank: player.rank, tied: player.tied })
+                      }
+                    }}
+                    className={`cursor-pointer transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-hover ${tone.row}`}
+                  >
                     <td className="py-3 sm:py-3.5 pl-3 sm:pl-5 pr-2 text-center align-middle">
                       <div className="flex justify-center items-center">
                         <RankBadge rank={player.rank} points={player.totalPoints} tied={player.tied} />

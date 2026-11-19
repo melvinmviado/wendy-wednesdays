@@ -10,6 +10,7 @@ import { WeekPillBar } from './WeekPillBar'
 
 interface WeeklyResultsScreenProps {
   isAdmin: boolean
+  initialWeek?: number | null // week to open first, e.g. when jumping in from a player's weekly log
 }
 
 const formatDate = (iso: string) =>
@@ -34,9 +35,9 @@ const groupByCourt = (teams: ResultTeam[]) => {
 
 const message = 'rounded-xl border border-line bg-surface p-6 text-center text-muted'
 
-export const WeeklyResultsScreen: React.FC<WeeklyResultsScreenProps> = ({ isAdmin }) => {
+export const WeeklyResultsScreen: React.FC<WeeklyResultsScreenProps> = ({ isAdmin, initialWeek = null }) => {
   const { results, loading, error, refresh } = useWeeklyResults()
-  const [selected, setSelected] = useState<number | null>(null)
+  const [selected, setSelected] = useState<number | null>(initialWeek)
 
   const visible = useMemo(() => {
     const today = todayIso()

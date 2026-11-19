@@ -1,7 +1,7 @@
 import React from 'react'
 import { Trophy, Medal, Award } from 'lucide-react'
 import { ResultTeam } from '../../types/leaderboard'
-import { getTeamOverallRank } from '../../utils/scoring'
+import { getPodiumTeams } from '../../utils/scoring'
 
 interface PodiumPairsProps {
   teams: ResultTeam[]
@@ -15,14 +15,7 @@ const TONES = [
 
 // The week's top three pairs overall. Shows only the pairs that exist (a small week may have fewer than 3).
 export const PodiumPairs: React.FC<PodiumPairsProps> = ({ teams }) => {
-  const podium = [...teams]
-    .sort(
-      (a, b) =>
-        getTeamOverallRank(a.courtNumber, a.finishOrder === 1 ? 1 : 2) -
-        getTeamOverallRank(b.courtNumber, b.finishOrder === 1 ? 1 : 2)
-    )
-    .filter((t) => t.finishOrder <= 2)
-    .slice(0, 3)
+  const podium = getPodiumTeams(teams)
 
   if (podium.length === 0) return null
 
