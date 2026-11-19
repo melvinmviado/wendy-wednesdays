@@ -1,4 +1,8 @@
+/* Hallmark · built: the project · redesign: full · scope: app · brand: crimson #dc2626 on black, kept · genre: editorial · hero: none (app screen) */
+/* Hallmark · pre-emit critique: P3 H4 E4 S3 R4 V3 · weakest: P, the brand is fixed so the argument is contrast: steps of ground, surface, raised and one red signal */
 @import "tailwindcss";
+@import "./tokens.css";
+@import "./base.css";
 
 @layer base {
   :root {

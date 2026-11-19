@@ -4,16 +4,14 @@ import {
   Search,
   UserPlus,
   RotateCcw,
-  Flame,
-  Calendar,
-  Users,
   ShieldCheck,
   Lock,
   LogOut,
   Database,
   RefreshCw,
   AlertTriangle,
-  CheckSquare
+  CheckSquare,
+  ClipboardList
 } from 'lucide-react'
 import { PlayerScore } from './types/leaderboard'
 import { initialPlayers } from './data/leaderboardData'
@@ -21,6 +19,7 @@ import { LeaderboardTable } from './components/LeaderboardTable'
 import { AddPlayerModal } from './components/AddPlayerModal'
 import { AdminLoginModal } from './components/AdminLoginModal'
 import { WeeklyEntryScreen } from './components/WeeklyEntryScreen'
+import { WeeklyResultsScreen } from './components/results/WeeklyResultsScreen'
 import { WebsiteLogo } from './components/WebsiteLogo'
 import { useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
@@ -28,7 +27,7 @@ import { supabase } from './lib/supabase'
 export default function App() {
   const { user, isAdmin, signOut, isConfigured } = useAuth()
 
-  const [currentView, setCurrentView] = useState<'leaderboard' | 'weekly-entry'>('leaderboard')
+  const [currentView, setCurrentView] = useState<'leaderboard' | 'weekly-results' | 'weekly-entry'>('leaderboard')
   const [players, setPlayers] = useState<PlayerScore[]>(() => {
     const saved = localStorage.getItem('wendy_leaderboard_players')
     if (saved) {
@@ -155,7 +154,7 @@ export default function App() {
   }
 
   // Navigation tab switcher
-  const handleSelectView = (view: 'leaderboard' | 'weekly-entry') => {
+  const handleSelectView = (view: 'leaderboard' | 'weekly-results' | 'weekly-entry') => {
     if (view === 'weekly-entry' && !isAdmin) {
       setIsAuthModalOpen(true)
       return
@@ -182,44 +181,37 @@ export default function App() {
     return { totalPlayers, topScore, avgPoints }
   }, [players, sortedPlayers])
 
-  return (
-    <div className="min-h-screen bg-black text-white selection:bg-red-600 selection:text-white">
-      {/* Background ambient lighting in deep crimson & black */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[38rem] h-[38rem] bg-gradient-to-b from-red-600/15 via-red-950/10 to-transparent rounded-full blur-3xl" />
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-red-900/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 -right-40 w-80 h-80 bg-red-950/15 rounded-full blur-3xl" />
-      </div>
+  const btn =
+    'inline-flex items-center justify-center gap-2 min-h-10 px-4 rounded-lg text-sm font-semibold transition-colors motion-safe:active:scale-[0.97] cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed'
+  const btnQuiet = `${btn} border border-line bg-surface text-ink hover:bg-raised`
+  const btnBrand = `${btn} bg-brand text-brand-ink hover:bg-brand-hover`
 
-      {/* Top Navbar / Admin Bar */}
-      <nav className="w-full border-b border-zinc-800/80 bg-black/85 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-3xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2.5">
+  return (
+    <div className="min-h-screen bg-ground text-ink">
+      <nav className="w-full border-b border-line bg-ground sticky top-0 z-30">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-3 min-w-0">
             <WebsiteLogo size="sm" />
-            <span className="font-extrabold text-white text-xs sm:text-sm tracking-tight hidden sm:inline">
-              Wendy Wednesdays
+            <span className="font-bold text-ink hidden sm:inline">Wendy Wednesdays</span>
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface border border-line text-ink-soft">
+              <Database className={`w-3.5 h-3.5 ${isConfigured ? 'text-ok' : 'text-brand-hover'}`} aria-hidden="true" />
+              <span role="status">{isConfigured ? 'Supabase Connected' : 'Demo Mode'}</span>
             </span>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800">
-              <Database className={`w-3.5 h-3.5 ${isConfigured ? 'text-emerald-400' : 'text-red-500'}`} />
-              <span className="font-medium text-zinc-300">
-                {isConfigured ? 'Supabase Connected' : 'Demo Mode'}
-              </span>
-            </div>
             {!isConfigured && (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="hidden sm:inline-block text-[11px] text-red-400 hover:text-red-300 underline cursor-pointer"
+                className="hidden sm:inline-block text-brand-hover hover:text-ink underline underline-offset-2 cursor-pointer"
               >
                 Connect Database
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {isAdmin ? (
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:flex items-center gap-1 text-red-300 bg-red-950/60 border border-red-500/40 px-2 py-0.5 rounded-full text-[11px] font-semibold">
-                  <ShieldCheck className="w-3 h-3 text-red-400" />
+              <>
+                <span className="hidden sm:flex items-center gap-1.5 text-ink bg-brand-soft border border-brand px-2.5 py-1 rounded-full">
+                  <ShieldCheck className="w-3.5 h-3.5 text-brand-hover" aria-hidden="true" />
                   <span className="truncate max-w-[130px]">{user?.email || 'Admin'}</span>
                 </span>
                 <button
@@ -227,19 +219,16 @@ export default function App() {
                     signOut()
                     setCurrentView('leaderboard')
                   }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:border-zinc-700 transition cursor-pointer"
+                  className={btnQuiet}
                   title="Sign out as administrator"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-4 h-4" aria-hidden="true" />
                   <span>Sign Out</span>
                 </button>
-              </div>
+              </>
             ) : (
-              <button
-                onClick={() => setIsAuthModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-800 bg-zinc-900/90 text-zinc-200 hover:text-white hover:border-red-600/50 transition cursor-pointer"
-              >
-                <Lock className="w-3 h-3 text-red-500" />
+              <button onClick={() => setIsAuthModalOpen(true)} className={btnQuiet}>
+                <Lock className="w-4 h-4 text-brand-hover" aria-hidden="true" />
                 <span>Admin Login</span>
               </button>
             )}
@@ -247,50 +236,42 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
-        {/* Navigation Tabs (Leaderboard vs Admin Weekly Entry) */}
-        {isAdmin && (
-        <div className="flex items-center justify-center p-1 rounded-2xl bg-zinc-900/90 border border-zinc-800 max-w-sm mx-auto w-full shadow-xl">
-          <button
-            onClick={() => handleSelectView('leaderboard')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-              currentView === 'leaderboard'
-                ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md shadow-red-600/30'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            <Trophy className="w-4 h-4" />
-            <span>Leaderboard</span>
-          </button>
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-8">
+          <div role="tablist" className="flex p-1 rounded-xl bg-surface border border-line max-w-md w-full">
+            {([
+              ['leaderboard', Trophy, 'Leaderboard'],
+              ['weekly-results', ClipboardList, 'Results'],
+              ['weekly-entry', CheckSquare, 'Weekly Entry'],
+            ] as const)
+              .filter(([view]) => view !== 'weekly-entry' || isAdmin)
+              .map(([view, Icon, label]) => (
+              <button
+                key={view}
+                role="tab"
+                aria-selected={currentView === view}
+                onClick={() => handleSelectView(view)}
+                className={`flex-1 min-h-10 px-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
+                  currentView === view ? 'bg-brand text-brand-ink' : 'text-ink-soft hover:text-ink'
+                }`}
+              >
+                <Icon className="w-4 h-4" aria-hidden="true" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
 
-          <button
-            onClick={() => handleSelectView('weekly-entry')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer relative ${
-              currentView === 'weekly-entry'
-                ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md shadow-red-600/30'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            <CheckSquare className="w-4 h-4" />
-            <span>Weekly Entry</span>
-          </button>
-        </div>
-        )}
-
-        {/* Database Warning if table missing */}
         {dbError && (
-          <div className="p-3.5 rounded-xl bg-red-950/60 border border-red-500/40 text-xs text-red-200 flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div role="alert" className="p-4 rounded-xl bg-brand-soft border border-brand text-sm text-ink flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-brand-hover shrink-0" aria-hidden="true" />
             <div className="space-y-1">
-              <p className="font-semibold text-white">Database Notice: {dbError}</p>
-              <p className="text-[11px] text-red-300 leading-relaxed">
-                Run the script in <code className="bg-zinc-900 px-1 py-0.5 rounded text-white">supabase/schema.sql</code> in your Supabase SQL Editor to set up the tables and computed view.
+              <p className="font-semibold">Database Notice: {dbError}</p>
+              <p className="text-ink-soft leading-relaxed">
+                Run the script in <code className="bg-ground px-1.5 py-0.5 rounded text-ink">supabase/schema.sql</code> in your Supabase SQL Editor to set up the tables and computed view.
               </p>
             </div>
           </div>
         )}
 
-        {/* VIEW 1: ADMIN WEEKLY ENTRY SCREEN */}
         {currentView === 'weekly-entry' && isAdmin ? (
           <WeeklyEntryScreen
             roster={players}
@@ -298,159 +279,105 @@ export default function App() {
             onLeaderboardUpdated={fetchSupabasePlayers}
             onAddNewPlayerToRoster={handleAddPlayer}
           />
+        ) : currentView === 'weekly-results' ? (
+          <WeeklyResultsScreen isAdmin={isAdmin} />
         ) : (
-          /* VIEW 2: SEASON LEADERBOARD */
-          <div className="flex flex-col gap-6 sm:gap-8">
-            {/* Header Section */}
-            <header className="flex flex-col items-center text-center space-y-3 pt-2">
-              <WebsiteLogo size="xl" className="mb-1" />
-
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-red-500/40 bg-red-950/50 text-red-300 text-xs font-bold tracking-wide shadow-sm">
-                <Flame className="w-3.5 h-3.5 text-red-500" />
-                <span>2026 Season Standings (Weeks 1 to 8)</span>
-              </div>
-
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white">
-                Wendy Wednesdays
-              </h1>
-
-              <p className="text-zinc-400 text-sm sm:text-base max-w-md">
-                Official season leaderboard ranked by total points. Database-computed from weekly attendance & scores.
-              </p>
-
-              {/* Quick Metrics Bar */}
-              <div className="flex items-center justify-center gap-3 sm:gap-6 pt-1 text-xs text-zinc-400">
-                <div className="flex items-center gap-1.5 bg-zinc-900/90 px-3 py-1.5 rounded-xl border border-zinc-800">
-                  <Users className="w-3.5 h-3.5 text-red-500" />
-                  <span>
-                    <strong className="text-white font-mono">{stats.totalPlayers}</strong> Players
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-zinc-900/90 px-3 py-1.5 rounded-xl border border-zinc-800">
-                  <Trophy className="w-3.5 h-3.5 text-white" />
-                  <span>
-                    Leader:{' '}
-                    <strong className="text-red-400 font-mono font-bold">
-                      {stats.topScore.toLocaleString()}
-                    </strong>{' '}
-                    pts
-                  </span>
-                </div>
-                <div className="hidden sm:flex items-center gap-1.5 bg-zinc-900/90 px-3 py-1.5 rounded-xl border border-zinc-800">
-                  <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>
-                    Avg:{' '}
-                    <strong className="text-white font-mono">
-                      {stats.avgPoints.toLocaleString()}
-                    </strong>{' '}
-                    pts
-                  </span>
+          <div className="flex flex-col gap-8">
+            <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+              <div className="flex items-center gap-5 min-w-0">
+                <WebsiteLogo size="xl" />
+                <div className="min-w-0">
+                  <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-ink [text-wrap:balance] wrap-break-word min-w-0">
+                    Wendy Wednesdays
+                  </h1>
+                  <p className="mt-2 text-ink-soft">2026 season standings, weeks 1 to 8</p>
                 </div>
               </div>
+
+              <dl className="flex gap-8 sm:text-right">
+                <div>
+                  <dt className="text-sm text-muted">Players</dt>
+                  <dd className="text-3xl font-black tabular-nums text-ink">{stats.totalPlayers}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted">Leader pts</dt>
+                  <dd className="text-3xl font-black tabular-nums text-brand-hover">{stats.topScore.toLocaleString()}</dd>
+                </div>
+                <div className="hidden sm:block">
+                  <dt className="text-sm text-muted">Avg pts</dt>
+                  <dd className="text-3xl font-black tabular-nums text-ink">{stats.avgPoints.toLocaleString()}</dd>
+                </div>
+              </dl>
             </header>
 
-            {/* Controls Bar (Mobile-first Search, Add Player & Refresh) */}
-            <div className="flex items-center gap-2 pt-1">
+            <p className="text-ink-soft max-w-prose">
+              Official season leaderboard ranked by total points. Database-computed from weekly attendance & scores.
+            </p>
+
+            <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search player name..."
-                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
+                  aria-label="Search player name"
+                  className="w-full min-h-10 pl-9 pr-16 rounded-lg bg-surface border border-line text-ink placeholder:text-muted"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-white px-1.5 py-0.5 rounded bg-zinc-800 cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-ink-soft hover:text-ink px-2 py-0.5 rounded bg-raised cursor-pointer"
                   >
                     Clear
                   </button>
                 )}
               </div>
 
-              {/* Add Player (Protected for Admins only) */}
-              <button
-                onClick={handleOpenAddPlayer}
-                className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-md shrink-0 ${
-                  isAdmin
-                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30 active:scale-95'
-                    : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80'
-                }`}
-                title={isAdmin ? 'Add New Player' : 'Admin Login required to add player'}
-              >
-                {isAdmin ? (
-                  <UserPlus className="w-4 h-4" />
-                ) : (
-                  <Lock className="w-3.5 h-3.5 text-red-500" />
-                )}
-                <span className="hidden sm:inline">Add Player</span>
-              </button>
-
-              {/* Weekly Entry shortcut for admin */}
               {isAdmin && (
-                <button
-                  onClick={() => setCurrentView('weekly-entry')}
-                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs sm:text-sm transition cursor-pointer shadow-md shadow-white/10 active:scale-95 shrink-0"
-                  title="Record Weekly Entry"
-                >
-                  <CheckSquare className="w-4 h-4" />
+                <button onClick={handleOpenAddPlayer} className={btnBrand} title="Add New Player">
+                  <UserPlus className="w-4 h-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Add Player</span>
+                </button>
+              )}
+
+              {isAdmin && (
+                <button onClick={() => setCurrentView('weekly-entry')} className={`${btn} bg-ink text-ground hover:bg-ink-soft`} title="Record Weekly Entry">
+                  <CheckSquare className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Record Week</span>
                 </button>
               )}
 
-              {/* Refresh / Sync with Supabase */}
               {isConfigured && (
-                <button
-                  onClick={fetchSupabasePlayers}
-                  disabled={loadingDb}
-                  className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 active:scale-95 text-zinc-400 hover:text-white transition cursor-pointer shrink-0 disabled:opacity-50"
-                  title="Refresh from Supabase database"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loadingDb ? 'animate-spin text-red-500' : ''}`} />
+                <button onClick={fetchSupabasePlayers} disabled={loadingDb} className={`${btnQuiet} px-3`} title="Refresh from Supabase database" aria-label="Refresh from Supabase database">
+                  <RefreshCw className={`w-4 h-4 ${loadingDb ? 'motion-safe:animate-spin text-brand-hover' : ''}`} aria-hidden="true" />
                 </button>
               )}
 
               {!isConfigured && (
-                <button
-                  onClick={handleResetData}
-                  className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 active:scale-95 text-zinc-400 hover:text-white transition cursor-pointer shrink-0"
-                  title="Reset to default scores"
-                >
-                  <RotateCcw className="w-4 h-4" />
+                <button onClick={handleResetData} className={`${btnQuiet} px-3`} title="Reset to default scores" aria-label="Reset to default scores">
+                  <RotateCcw className="w-4 h-4" aria-hidden="true" />
                 </button>
               )}
             </div>
 
-            {/* Mobile-First Season Leaderboard Table (Only Rank, Player, Weeks, Points) */}
             <section aria-label="Season Standings Table">
               <LeaderboardTable players={players} searchQuery={searchQuery} />
             </section>
           </div>
         )}
 
-        {/* Legend / Info Footer */}
-        <footer className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-zinc-850 text-xs text-zinc-500 text-center sm:text-left">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> Gold: 1st
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" /> Silver: 2nd
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-600 inline-block" /> Bronze: 3rd
-            </span>
-          </div>
-
-          <div className="text-[11px] text-zinc-500">
-            Wendy Wednesdays • Cloudflare Pages & Supabase
-          </div>
+        <footer className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-line text-sm text-muted">
+          <ul className="flex items-center gap-4">
+            <li className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400" aria-hidden="true" />Gold: 1st</li>
+            <li className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-slate-300" aria-hidden="true" />Silver: 2nd</li>
+            <li className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-600" aria-hidden="true" />Bronze: 3rd</li>
+          </ul>
+          <p>Wendy Wednesdays, on Cloudflare Pages and Supabase</p>
         </footer>
       </main>
 
-      {/* Add Player Modal (Protected) */}
       <AddPlayerModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -458,7 +385,6 @@ export default function App() {
         onRequireAuth={() => setIsAuthModalOpen(true)}
       />
 
-      {/* Admin Login Modal */}
       <AdminLoginModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}

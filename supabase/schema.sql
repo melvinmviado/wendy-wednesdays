@@ -96,3 +96,54 @@ create policy "Allow authenticated admin update weekly scores"
 
 create policy "Allow authenticated admin delete weekly scores"
   on public.weekly_scores for delete to authenticated using (true);
+
+-- 8. Weeks: one row per week holding metadata and a single podium photo.
+-- Not required for scoring; the row is created on demand (upsert) when a photo or note is saved.
+-- Weeks stay editable after the fact, so there is intentionally no "finalized" flag.
+create table if not exists public.weeks (
+  week_number integer primary key check (week_number between 1 and 8),
+  played_on date,
+  notes text,
+  podium_photo_url text,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.weeks enable row level security;
+
+drop policy if exists "Allow public read weeks" on public.weeks;
+create policy "Allow public read weeks"
+  on public.weeks for select using (true);
+
+drop policy if exists "Allow authenticated admin insert weeks" on public.weeks;
+create policy "Allow authenticated admin insert weeks"
+  on public.weeks for insert to authenticated with check (true);
+
+drop policy if exists "Allow authenticated admin update weeks" on public.weeks;
+create policy "Allow authenticated admin update weeks"
+  on public.weeks for update to authenticated using (true) with check (true);
+
+drop policy if exists "Allow authenticated admin delete weeks" on public.weeks;
+create policy "Allow authenticated admin delete weeks"
+  on public.weeks for delete to authenticated using (true);
+
+-- 9. Storage bucket for podium photos (public read, admin write)
+insert into storage.buckets (id, name, public)
+values ('week-photos', 'week-photos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Public read week photos" on storage.objects;
+create policy "Public read week photos"
+  on storage.objects for select using (bucket_id = 'week-photos');
+
+drop policy if exists "Admin insert week photos" on storage.objects;
+create policy "Admin insert week photos"
+  on storage.objects for insert to authenticated with check (bucket_id = 'week-photos');
+
+drop policy if exists "Admin update week photos" on storage.objects;
+create policy "Admin update week photos"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'week-photos') with check (bucket_id = 'week-photos');
+
+drop policy if exists "Admin delete week photos" on storage.objects;
+create policy "Admin delete week photos"
+  on storage.objects for delete to authenticated using (bucket_id = 'week-photos');

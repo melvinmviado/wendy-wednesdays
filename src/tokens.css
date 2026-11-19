@@ -1,0 +1,17 @@
+@theme {
+  --color-ground: #0c0a0a;
+  --color-surface: #181414;
+  --color-raised: #251f1f;
+  --color-line: #4a4040;
+  --color-ink: #f7f2f1;
+  --color-ink-soft: #d6cdcb;
+  --color-muted: #ada2a0;
+  --color-brand: #dc2626;
+  --color-brand-hover: #f05252;
+  --color-brand-ink: #fff6f5;
+  --color-brand-soft: #3a1313;
+  --color-ok: #34d399;
+  --color-gold: #fbbf24;
+  --color-silver: #d5dbe3;
+  --color-bronze: #e08a2e;
+}

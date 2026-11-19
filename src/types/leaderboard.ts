@@ -30,3 +30,30 @@ export interface CourtData {
   secondPlacePoints: number
   slots: CourtPlayerSlot[] // Exactly 4 player slots (2 in 1st place, 2 in 2nd place)
 }
+
+// ---- Weekly Results archive ----
+
+export interface WeekMeta {
+  weekNumber: number
+  playedOn: string | null
+  notes: string | null
+  podiumPhotoUrl: string | null
+}
+
+export interface ResultPlayer {
+  playerId: string
+  name: string
+  points: number
+}
+
+// A doubles team, inferred from rows sharing week + court + finish order
+export interface ResultTeam {
+  courtNumber: number
+  finishOrder: number
+  players: ResultPlayer[]
+}
+
+export interface WeeklyResult extends WeekMeta {
+  teams: ResultTeam[] // sorted by court, then finish order
+  attendeeCount: number
+}
