@@ -16,6 +16,7 @@ import {
 import { PlayerScore } from './types/leaderboard'
 import { initialPlayers } from './data/leaderboardData'
 import { LeaderboardTable } from './components/LeaderboardTable'
+import { PlayerStatsModal, type SelectedPlayer } from './components/PlayerStatsModal'
 import { AddPlayerModal } from './components/AddPlayerModal'
 import { AdminLoginModal } from './components/AdminLoginModal'
 import { WeeklyEntryScreen } from './components/WeeklyEntryScreen'
@@ -27,6 +28,8 @@ import { supabase } from './lib/supabase'
 export default function App() {
   const { user, isAdmin, signOut, isConfigured } = useAuth()
 
+  const [statsPlayer, setStatsPlayer] = useState<SelectedPlayer | null>(null)
+  const [resultsWeek, setResultsWeek] = useState<number | null>(null)
   const [currentView, setCurrentView] = useState<'leaderboard' | 'weekly-results' | 'weekly-entry'>('leaderboard')
   const [players, setPlayers] = useState<PlayerScore[]>(() => {
     const saved = localStorage.getItem('wendy_leaderboard_players')
@@ -159,6 +162,7 @@ export default function App() {
       setIsAuthModalOpen(true)
       return
     }
+    setResultsWeek(null) // a manual tab switch should open the default week, not a stale jump target
     setCurrentView(view)
   }
 
@@ -280,7 +284,7 @@ export default function App() {
             onAddNewPlayerToRoster={handleAddPlayer}
           />
         ) : currentView === 'weekly-results' ? (
-          <WeeklyResultsScreen isAdmin={isAdmin} />
+          <WeeklyResultsScreen isAdmin={isAdmin} initialWeek={resultsWeek} />
         ) : (
           <div className="flex flex-col gap-8">
             <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
@@ -363,7 +367,15 @@ export default function App() {
             </div>
 
             <section aria-label="Season Standings Table">
-              <LeaderboardTable players={players} searchQuery={searchQuery} />
+              <LeaderboardTable players={players} searchQuery={searchQuery} onSelectPlayer={setStatsPlayer} />
+              <PlayerStatsModal
+                selected={statsPlayer}
+                onClose={() => setStatsPlayer(null)}
+                onSelectWeek={(week) => {
+                  setResultsWeek(week)
+                  setCurrentView('weekly-results')
+                }}
+              />
             </section>
           </div>
         )}

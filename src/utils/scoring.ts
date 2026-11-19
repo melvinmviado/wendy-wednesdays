@@ -1,3 +1,5 @@
+import type { ResultTeam } from '../types/leaderboard'
+
 /**
  * Dynamic percentile / linear scaling system for Wendy Wednesdays:
  * Formula: points = base + PodiumBonus + round(MaxPool * ((N - Rank) / (N - 1)))
@@ -54,6 +56,18 @@ export function calculateDynamicPoints(
  * - Court 2 Runners-up = Rank 4
  * ...
  */
+/**
+ * The week's podium: the top three teams overall (1st/2nd place team on each court only).
+ * A small week may return fewer than three.
+ */
+export function getPodiumTeams(teams: ResultTeam[]): ResultTeam[] {
+  const rankOf = (t: ResultTeam) => getTeamOverallRank(t.courtNumber, t.finishOrder === 1 ? 1 : 2)
+  return [...teams]
+    .sort((a, b) => rankOf(a) - rankOf(b))
+    .filter((t) => t.finishOrder <= 2)
+    .slice(0, 3)
+}
+
 export function getTeamOverallRank(courtNumber: number, teamPlace: 1 | 2): number {
   return (courtNumber - 1) * 2 + teamPlace
 }
