@@ -1,4 +1,5 @@
 import { PlayerScore, WeeklyScoreRecord } from '../types/leaderboard'
+import { compareScores } from '../utils/ranking'
 
 export const initialPlayers: PlayerScore[] = [
   { id: '1', name: 'Wendy Mitchell', weeksPlayed: 5, totalPoints: 640 },
@@ -60,5 +61,5 @@ export function computeLocalLeaderboard(
         totalPoints,
       }
     })
-    .sort((a, b) => b.totalPoints - a.totalPoints || b.weeksPlayed - a.weeksPlayed)
+    .sort(compareScores)
 }

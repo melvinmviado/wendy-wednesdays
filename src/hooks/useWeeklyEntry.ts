@@ -3,6 +3,7 @@ import { PlayerScore, CourtData, WeeklyScoreRecord } from '../types/leaderboard'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { getTeamOverallRank } from '../utils/scoring'
 import type { SaveResult } from '../components/SaveResultModal'
+import { persistActivePlayers } from '../data/players'
 
 interface UseWeeklyEntryArgs {
   roster: PlayerScore[]
@@ -148,12 +149,12 @@ export const useWeeklyEntry = ({
             if (firstPlaceRecords[0]) {
               const p = roster.find((x) => x.id === firstPlaceRecords[0].playerId)
               court.slots[0].playerId = firstPlaceRecords[0].playerId
-              court.slots[0].playerName = p ? p.name : null
+              court.slots[0].playerName = p ? p.name : 'Archived player'
             }
             if (firstPlaceRecords[1]) {
               const p = roster.find((x) => x.id === firstPlaceRecords[1].playerId)
               court.slots[1].playerId = firstPlaceRecords[1].playerId
-              court.slots[1].playerName = p ? p.name : null
+              court.slots[1].playerName = p ? p.name : 'Archived player'
             }
           }
 
@@ -167,12 +168,12 @@ export const useWeeklyEntry = ({
             if (secondPlaceRecords[0]) {
               const p = roster.find((x) => x.id === secondPlaceRecords[0].playerId)
               court.slots[2].playerId = secondPlaceRecords[0].playerId
-              court.slots[2].playerName = p ? p.name : null
+              court.slots[2].playerName = p ? p.name : 'Archived player'
             }
             if (secondPlaceRecords[1]) {
               const p = roster.find((x) => x.id === secondPlaceRecords[1].playerId)
               court.slots[3].playerId = secondPlaceRecords[1].playerId
-              court.slots[3].playerName = p ? p.name : null
+              court.slots[3].playerName = p ? p.name : 'Archived player'
             }
           }
 
@@ -222,12 +223,12 @@ export const useWeeklyEntry = ({
             if (firstPlaceRecords[0]) {
               const p = roster.find((x) => x.id === firstPlaceRecords[0].playerId)
               court.slots[0].playerId = firstPlaceRecords[0].playerId
-              court.slots[0].playerName = p ? p.name : null
+              court.slots[0].playerName = p ? p.name : 'Archived player'
             }
             if (firstPlaceRecords[1]) {
               const p = roster.find((x) => x.id === firstPlaceRecords[1].playerId)
               court.slots[1].playerId = firstPlaceRecords[1].playerId
-              court.slots[1].playerName = p ? p.name : null
+              court.slots[1].playerName = p ? p.name : 'Archived player'
             }
           }
 
@@ -240,12 +241,12 @@ export const useWeeklyEntry = ({
             if (secondPlaceRecords[0]) {
               const p = roster.find((x) => x.id === secondPlaceRecords[0].playerId)
               court.slots[2].playerId = secondPlaceRecords[0].playerId
-              court.slots[2].playerName = p ? p.name : null
+              court.slots[2].playerName = p ? p.name : 'Archived player'
             }
             if (secondPlaceRecords[1]) {
               const p = roster.find((x) => x.id === secondPlaceRecords[1].playerId)
               court.slots[3].playerId = secondPlaceRecords[1].playerId
-              court.slots[3].playerName = p ? p.name : null
+              court.slots[3].playerName = p ? p.name : 'Archived player'
             }
           }
 
@@ -609,7 +610,7 @@ export const useWeeklyEntry = ({
           }
         })
 
-        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(updatedLeaderboard))
+        persistActivePlayers(updatedLeaderboard)
         onLeaderboardUpdated()
       }
 

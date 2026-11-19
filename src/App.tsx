@@ -11,11 +11,13 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckSquare,
-  ClipboardList
+  ClipboardList,
+  Archive
 } from 'lucide-react'
 import { PlayerScore } from './types/leaderboard'
 import { initialPlayers } from './data/leaderboardData'
 import { LeaderboardTable } from './components/LeaderboardTable'
+import { useRankMovement } from './hooks/useRankMovement'
 import { PlayerStatsModal, type SelectedPlayer } from './components/PlayerStatsModal'
 import { AddPlayerModal } from './components/AddPlayerModal'
 import { AdminLoginModal } from './components/AdminLoginModal'
@@ -24,9 +26,18 @@ import { WeeklyResultsScreen } from './components/results/WeeklyResultsScreen'
 import { WebsiteLogo } from './components/WebsiteLogo'
 import { useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
+import { fetchPlayers, persistActivePlayers } from './data/players'
+import { useIsAdmin } from './hooks/useIsAdmin'
+import { useToasts } from './hooks/useToasts'
+import { usePlayerAdmin } from './hooks/usePlayerAdmin'
+import { PlayerActionsMenu } from './components/admin/PlayerActionsMenu'
+import { ArchivedPlayers } from './components/admin/ArchivedPlayers'
+import { PlayerAdminDialogs } from './components/admin/PlayerAdminDialogs'
+import { Toasts } from './components/admin/Toasts'
 
 export default function App() {
-  const { user, isAdmin, signOut, isConfigured } = useAuth()
+  const { user, signOut, isConfigured } = useAuth()
+  const { isAdmin } = useIsAdmin()
 
   const [statsPlayer, setStatsPlayer] = useState<SelectedPlayer | null>(null)
   const [resultsWeek, setResultsWeek] = useState<number | null>(null)
@@ -35,7 +46,7 @@ export default function App() {
     const saved = localStorage.getItem('wendy_leaderboard_players')
     if (saved) {
       try {
-        return JSON.parse(saved)
+        return (JSON.parse(saved) as PlayerScore[]).filter((p) => !p.archivedAt)
       } catch {
         // fallback
       }
@@ -43,6 +54,7 @@ export default function App() {
     return initialPlayers
   })
 
+  const movement = useRankMovement(players)
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
@@ -75,25 +87,13 @@ export default function App() {
         return
       }
 
-      // 2. Fallback to direct players table if view is not yet created
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .order('total_points', { ascending: false })
+      // 2. Fallback to direct players table if view is not yet created (archived players excluded)
+      const result = await fetchPlayers()
+      if (!result.ok) throw new Error(result.error.message)
 
-      if (error) {
-        throw error
-      }
-
-      if (data && data.length > 0) {
-        const mapped: PlayerScore[] = data.map((item) => ({
-          id: item.id,
-          name: item.name,
-          weeksPlayed: item.weeks_played ?? 0,
-          totalPoints: item.total_points ?? 0,
-        }))
-        setPlayers(mapped)
-        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))
+      if (result.data.length > 0) {
+        setPlayers(result.data)
+        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(result.data))
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to fetch from database'
@@ -133,10 +133,19 @@ export default function App() {
     }
   }, [isConfigured, fetchSupabasePlayers])
 
+  const toasts = useToasts()
+  const admin = usePlayerAdmin({
+    enabled: isAdmin,
+    players,
+    setPlayers,
+    toast: toasts,
+    refresh: fetchSupabasePlayers,
+  })
+
   const handleAddPlayer = (newPlayer: PlayerScore) => {
     const updated = [newPlayer, ...players]
     setPlayers(updated)
-    localStorage.setItem('wendy_leaderboard_players', JSON.stringify(updated))
+    persistActivePlayers(updated)
   }
 
   const handleResetData = () => {
@@ -347,6 +356,18 @@ export default function App() {
               )}
 
               {isAdmin && (
+                <button
+                  onClick={admin.toggleArchived}
+                  aria-pressed={admin.showArchived}
+                  className={`${btnQuiet} ${admin.showArchived ? 'bg-raised' : ''}`}
+                  title="Show archived players"
+                >
+                  <Archive className="w-4 h-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Archived{admin.archived.length > 0 ? ` (${admin.archived.length})` : ''}</span>
+                </button>
+              )}
+
+              {isAdmin && (
                 <button onClick={() => setCurrentView('weekly-entry')} className={`${btn} bg-ink text-ground hover:bg-ink-soft`} title="Record Weekly Entry">
                   <CheckSquare className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Record Week</span>
@@ -367,7 +388,24 @@ export default function App() {
             </div>
 
             <section aria-label="Season Standings Table">
-              <LeaderboardTable players={players} searchQuery={searchQuery} onSelectPlayer={setStatsPlayer} />
+              <LeaderboardTable
+                players={players}
+                searchQuery={searchQuery}
+                onSelectPlayer={setStatsPlayer}
+                movement={movement}
+                renderActions={
+                  isAdmin
+                    ? (player) => (
+                        <PlayerActionsMenu
+                          playerName={player.name}
+                          onRename={() => admin.openDialog('rename', player)}
+                          onArchive={() => admin.openDialog('archive', player)}
+                          onDelete={() => admin.openDialog('delete', player)}
+                        />
+                      )
+                    : undefined
+                }
+              />
               <PlayerStatsModal
                 selected={statsPlayer}
                 onClose={() => setStatsPlayer(null)}
@@ -377,6 +415,18 @@ export default function App() {
                 }}
               />
             </section>
+
+            {isAdmin && admin.showArchived && (
+              <ArchivedPlayers
+                players={admin.archived}
+                loading={admin.archivedLoading}
+                error={admin.archivedError}
+                pendingIds={admin.pendingIds}
+                onRestore={admin.restore}
+                onDelete={(player) => admin.openDialog('delete', player)}
+                onRetry={admin.loadArchived}
+              />
+            )}
           </div>
         )}
 
@@ -396,6 +446,9 @@ export default function App() {
         onAddPlayer={handleAddPlayer}
         onRequireAuth={() => setIsAuthModalOpen(true)}
       />
+
+      {isAdmin && <PlayerAdminDialogs admin={admin} />}
+      <Toasts toasts={toasts.toasts} onDismiss={toasts.dismiss} />
 
       <AdminLoginModal
         isOpen={isAuthModalOpen}

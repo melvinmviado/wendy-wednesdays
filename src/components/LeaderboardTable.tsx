@@ -2,18 +2,24 @@ import React, { useMemo } from 'react'
 import { PlayerScore } from '../types/leaderboard'
 import { RankBadge } from './RankBadge'
 import type { SelectedPlayer } from './PlayerStatsModal'
-import { rankPlayers, rankSpoken } from '../utils/ranking'
+import { rankPlayers, rankSpoken, type RankMovement as Movement } from '../utils/ranking'
+import { RankMovement } from './RankMovement'
 
 interface LeaderboardTableProps {
   players: PlayerScore[]
   searchQuery?: string
   onSelectPlayer?: (selected: SelectedPlayer) => void
+  movement?: Map<string, Movement>
+  /** Admin-only row actions (e.g. a menu). When given, adds a trailing actions column. */
+  renderActions?: (player: PlayerScore) => React.ReactNode
 }
 
 export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
   players,
   searchQuery = '',
   onSelectPlayer,
+  movement,
+  renderActions,
 }) => {
   // Sorted by season points, with competition ranks (ties share a rank)
   const rankedPlayers = useMemo(() => rankPlayers(players), [players])
@@ -37,20 +43,21 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
               <th scope="col" className="py-3.5 px-3 sm:px-4 font-semibold text-ink">
                 Player Name
               </th>
-              <th scope="col" className="py-3.5 px-2 sm:px-4 w-16 sm:w-28 text-center font-semibold text-ink">
-                <span className="sm:inline hidden">Weeks Played</span>
-                <span className="sm:hidden inline">Weeks</span>
-              </th>
               <th scope="col" className="py-3.5 pl-2 pr-3 sm:pr-5 w-24 sm:w-32 text-right font-semibold text-ink">
                 <span className="sm:inline hidden">Total Points</span>
                 <span className="sm:hidden inline">Points</span>
               </th>
+              {renderActions && (
+                <th scope="col" className="py-3.5 pr-3 sm:pr-4 w-12">
+                  <span className="sr-only">Actions</span>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {filteredPlayers.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-12 text-center text-muted">
+                <td colSpan={renderActions ? 4 : 3} className="py-12 text-center text-muted">
                   No players found matching "{searchQuery}"
                 </td>
               </tr>
@@ -69,18 +76,21 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                   ? { row: 'bg-bronze/10 hover:bg-bronze/15', ink: 'text-bronze' }
                   : { row: 'hover:bg-raised', ink: 'text-ink' }
                 const podium = isTop1 || isTop2 || isTop3
+                // Players with no points yet get no indicator
+                const move = player.totalPoints > 0 ? movement?.get(player.id) : undefined
+                const select = () => onSelectPlayer?.({ player, rank: player.rank, tied: player.tied, movement: move })
 
                 return (
                   <tr
                     key={player.id}
                     tabIndex={0}
                     aria-label={`${player.name}, ${rankSpoken(player.rank, player.tied)}. Open player stats`}
-                    onClick={() => onSelectPlayer?.({ player, rank: player.rank, tied: player.tied })}
+                    onClick={select}
                     onKeyDown={(e) => {
                       if (e.target !== e.currentTarget) return
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
-                        onSelectPlayer?.({ player, rank: player.rank, tied: player.tied })
+                        select()
                       }
                     }}
                     className={`cursor-pointer transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-hover ${tone.row}`}
@@ -102,16 +112,19 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                         <span className={`truncate ${podium ? `font-bold ${tone.ink}` : 'font-semibold text-ink'}`}>
                           {player.name}
                         </span>
+                        <RankMovement movement={move} />
                       </div>
-                    </td>
-
-                    <td className="py-3 sm:py-3.5 px-2 sm:px-4 text-center align-middle tabular-nums text-ink-soft">
-                      {player.weeksPlayed}
                     </td>
 
                     <td className="py-3 sm:py-3.5 pl-2 pr-3 sm:pr-5 text-right align-middle tabular-nums text-lg font-black">
                       <span className={tone.ink}>{player.totalPoints.toLocaleString()}</span>
                     </td>
+
+                    {renderActions && (
+                      <td className="py-3 sm:py-3.5 pr-3 sm:pr-4 text-right align-middle" onClick={(e) => e.stopPropagation()}>
+                        {renderActions(player)}
+                      </td>
+                    )}
                   </tr>
                 )
               })

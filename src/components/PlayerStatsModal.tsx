@@ -4,11 +4,13 @@ import { useDialogBehavior } from '../hooks/useDialogBehavior'
 import { usePlayerStats } from '../hooks/usePlayerStats'
 import { EXIT_MS, prefersReducedMotion } from '../utils/motion'
 import { PlayerStatsDialog } from './PlayerStatsDialog'
+import type { RankMovement } from '../utils/ranking'
 
 export interface SelectedPlayer {
   player: PlayerScore
   rank: number
   tied: boolean
+  movement?: RankMovement
 }
 
 interface PlayerStatsModalProps {

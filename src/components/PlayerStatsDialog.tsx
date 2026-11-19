@@ -2,6 +2,7 @@ import React, { useId, type RefObject } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import type { PlayerStats } from '../utils/playerStats'
 import { RankBadge } from './RankBadge'
+import { RankMovement } from './RankMovement'
 import { SeasonSparkline } from './stats/SeasonSparkline'
 import { CareerTiles } from './stats/CareerTiles'
 import { WeeklyLog } from './stats/WeeklyLog'
@@ -44,7 +45,7 @@ export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
   onSelectWeek,
 }) => {
   const titleId = useId()
-  const { player, rank, tied } = selected
+  const { player, rank, tied, movement } = selected
   const { stats, loading, error, available } = state
 
   return (
@@ -69,6 +70,7 @@ export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
       >
         <header className="flex items-center gap-3 border-b border-line p-4">
           <RankBadge rank={rank} points={player.totalPoints} tied={tied} />
+          <RankMovement movement={movement} />
           <h2
             id={titleId}
             title={player.name}

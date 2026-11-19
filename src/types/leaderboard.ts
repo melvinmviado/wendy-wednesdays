@@ -3,7 +3,20 @@ export interface PlayerScore {
   name: string
   weeksPlayed: number
   totalPoints: number
+  archivedAt?: string | null // ISO timestamp; null/undefined = active
+  updatedAt?: string
 }
+
+// ---- Player admin ----
+
+export type PlayerAdminErrorCode = 'DUPLICATE_NAME' | 'INVALID_NAME' | 'NOT_FOUND' | 'FORBIDDEN' | 'UNKNOWN'
+
+export interface PlayerAdminError {
+  code: PlayerAdminErrorCode
+  message: string
+}
+
+export type Result<T> = { ok: true; data: T } | { ok: false; error: PlayerAdminError }
 
 export interface WeeklyScoreRecord {
   id?: string
