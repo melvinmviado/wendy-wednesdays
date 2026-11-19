@@ -249,6 +249,7 @@ export default function App() {
 
       <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
         {/* Navigation Tabs (Leaderboard vs Admin Weekly Entry) */}
+        {isAdmin && (
         <div className="flex items-center justify-center p-1 rounded-2xl bg-zinc-900/90 border border-zinc-800 max-w-sm mx-auto w-full shadow-xl">
           <button
             onClick={() => handleSelectView('leaderboard')}
@@ -272,11 +273,9 @@ export default function App() {
           >
             <CheckSquare className="w-4 h-4" />
             <span>Weekly Entry</span>
-            {!isAdmin && (
-              <Lock className="w-3 h-3 text-red-400 absolute right-2.5" />
-            )}
           </button>
         </div>
+        )}
 
         {/* Database Warning if table missing */}
         {dbError && (
