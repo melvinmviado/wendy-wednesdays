@@ -4,8 +4,13 @@ create table if not exists public.players (
   name text not null,
   weeks_played integer not null default 0,
   total_points integer not null default 0,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  constraint players_weeks_played_check check (weeks_played >= 0)
 );
+
+-- For databases created before this constraint was relaxed (allows 0 weeks played)
+alter table public.players drop constraint if exists players_weeks_played_check;
+alter table public.players add constraint players_weeks_played_check check (weeks_played >= 0);
 
 -- 2. Create the weekly_scores table with court & finish order
 create table if not exists public.weekly_scores (

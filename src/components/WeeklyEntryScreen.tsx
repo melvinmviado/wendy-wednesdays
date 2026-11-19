@@ -23,6 +23,7 @@ import {
 import { PlayerScore, CourtData, WeeklyScoreRecord } from '../types/leaderboard'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { getTeamOverallRank } from '../utils/scoring'
+import { SaveResultModal, SaveResult } from './SaveResultModal'
 
 interface WeeklyEntryScreenProps {
   roster: PlayerScore[]
@@ -66,6 +67,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
   const [loadingWeek, setLoadingWeek] = useState(false)
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [saveResult, setSaveResult] = useState<SaveResult | null>(null)
 
   // Initialize a blank CourtData with 4 slots (2 in 1st place, 2 in 2nd place)
   const buildEmptyCourt = useCallback((courtNum: number): CourtData => {
@@ -532,6 +534,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
     setSaving(true)
     setErrorMsg(null)
     setSaveSuccessMsg(null)
+    setSaveResult(null)
 
     try {
       const recordsToUpsert: {
@@ -635,12 +638,21 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
         onLeaderboardUpdated()
       }
 
-      setSaveSuccessMsg(
-        `Week ${selectedWeek} saved! Bulk upserted ${recordsToUpsert.filter((r) => r.attended).length} players across ${courts.length} courts. Leaderboard recomputed.`
-      )
+      setSaveResult({
+        status: 'success',
+        message: `Saved ${recordsToUpsert.filter((r) => r.attended).length} players across ${courts.length} courts. Leaderboard recomputed.`,
+      })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to save court results'
-      setErrorMsg(msg)
+      console.error('Failed to save court results:', err)
+      let msg = 'Failed to save court results'
+      if (typeof err === 'object' && err !== null && 'message' in err && typeof err.message === 'string') {
+        const e = err as { message: string; details?: string; hint?: string }
+        msg = [e.message, e.details, e.hint].filter(Boolean).join(' – ')
+        if (/row-level security|jwt|permission denied/i.test(e.message)) {
+          msg += ' (Please log in as admin and try again.)'
+        }
+      }
+      setSaveResult({ status: 'error', message: msg })
     } finally {
       setSaving(false)
     }
@@ -698,6 +710,7 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
                 key={week}
                 onClick={() => {
                   setSelectedWeek(week)
+                  setSaveResult(null)
                   setStage('checkin')
                 }}
                 className={`py-2.5 px-2 rounded-xl text-center font-bold text-xs sm:text-sm transition-all cursor-pointer border ${
@@ -1334,6 +1347,17 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
           </div>
         </div>
       )}
+
+      <SaveResultModal
+        result={saveResult}
+        weekNumber={selectedWeek}
+        onClose={() => setSaveResult(null)}
+        onViewStandings={onBackToLeaderboard}
+        onRetry={() => {
+          setSaveResult(null)
+          handleSaveWeek()
+        }}
+      />
     </div>
   )
 }

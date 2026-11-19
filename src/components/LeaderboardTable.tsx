@@ -23,10 +23,12 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
 
   // Map to assign actual season rank based on total points
   const rankedPlayers = useMemo(() => {
-    return sortedPlayers.map((player, index) => ({
-      ...player,
-      rank: index + 1,
-    }))
+    return sortedPlayers.map((player) => {
+      // Competition ranking: ties share the rank of the first player with equal points
+      const firstIndex = sortedPlayers.findIndex((p) => p.totalPoints === player.totalPoints)
+      const count = sortedPlayers.filter((p) => p.totalPoints === player.totalPoints).length
+      return { ...player, rank: firstIndex + 1, tied: count > 1 }
+    })
   }, [sortedPlayers])
 
   // Filter based on search query if present
@@ -86,7 +88,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                     {/* 1. Rank */}
                     <td className="py-3 sm:py-3.5 pl-3 sm:pl-5 pr-2 text-center align-middle">
                       <div className="flex justify-center items-center">
-                        <RankBadge rank={player.rank} points={player.totalPoints} />
+                        <RankBadge rank={player.rank} points={player.totalPoints} tied={player.tied} />
                       </div>
                     </td>
 

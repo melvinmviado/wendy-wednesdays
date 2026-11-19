@@ -4,9 +4,12 @@ import { Trophy, Medal, Award } from 'lucide-react'
 interface RankBadgeProps {
   points: number
   rank: number
+  tied?: boolean
 }
 
-export const RankBadge: React.FC<RankBadgeProps> = ({ rank, points }) => {
+export const RankBadge: React.FC<RankBadgeProps> = ({ rank, points, tied = false }) => {
+  const label = tied ? `T${rank}` : `${rank}`
+
   if (rank === 1 && points > 0) {
     return (
       <div
@@ -14,7 +17,7 @@ export const RankBadge: React.FC<RankBadgeProps> = ({ rank, points }) => {
         title="1st Place - Gold"
       >
         <Trophy className="w-3.5 h-3.5 fill-amber-950 text-amber-950 shrink-0" />
-        <span className="text-sm font-black tracking-tight">1</span>
+        <span className="text-sm font-black tracking-tight">{label}</span>
       </div>
     )
   }
@@ -26,7 +29,7 @@ export const RankBadge: React.FC<RankBadgeProps> = ({ rank, points }) => {
         title="2nd Place - Silver"
       >
         <Medal className="w-3.5 h-3.5 fill-slate-900 text-slate-900 shrink-0" />
-        <span className="text-sm font-black tracking-tight">2</span>
+        <span className="text-sm font-black tracking-tight">{label}</span>
       </div>
     )
   }
@@ -38,7 +41,7 @@ export const RankBadge: React.FC<RankBadgeProps> = ({ rank, points }) => {
         title="3rd Place - Bronze"
       >
         <Award className="w-3.5 h-3.5 fill-amber-200 text-amber-200 shrink-0" />
-        <span className="text-sm font-black tracking-tight">3</span>
+        <span className="text-sm font-black tracking-tight">{label}</span>
       </div>
     )
   }
@@ -48,7 +51,7 @@ export const RankBadge: React.FC<RankBadgeProps> = ({ rank, points }) => {
       className="inline-flex items-center justify-center min-w-[2.25rem] h-9 px-2 rounded-xl bg-slate-900 text-slate-400 font-semibold text-sm border border-slate-800"
       title={`Rank ${rank}`}
     >
-      <span>{rank}</span>
+      <span>{label}</span>
     </div>
   )
 }
