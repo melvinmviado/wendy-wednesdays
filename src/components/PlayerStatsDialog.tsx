@@ -26,6 +26,7 @@ interface PlayerStatsDialogProps {
   onClose: () => void
   onSelectWeek?: (weekNumber: number) => void
   extra?: React.ReactNode // rendered under the stats (e.g. the claim box)
+  onSignIn?: () => void // shows the "claim your profile" footer for unclaimed players
 }
 
 const Section: React.FC<{ id: string; title: string; children: React.ReactNode }> = ({ id, title, children }) => (
@@ -47,6 +48,7 @@ export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
   onClose,
   onSelectWeek,
   extra,
+  onSignIn,
 }) => {
   const titleId = useId()
   const { player, rank, tied, movement } = selected
@@ -141,6 +143,16 @@ export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
           ) : null}
           {extra}
         </div>
+
+        {!player.isClaimed && onSignIn && (
+          <button
+            type="button"
+            onClick={onSignIn}
+            className="border-t border-line bg-raised px-4 py-2.5 text-center text-xs text-muted hover:text-ink transition-colors cursor-pointer pb-[max(0.625rem,env(safe-area-inset-bottom))]"
+          >
+            Is this you? <span className="font-semibold underline underline-offset-2">Claim your profile now!</span>
+          </button>
+        )}
       </div>
     </div>
   )

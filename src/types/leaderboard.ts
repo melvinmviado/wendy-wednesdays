@@ -9,6 +9,7 @@ export interface PlayerScore {
   avatarUrl?: string | null // linked profile photo, else players.avatar_url; null = show initials
   updatedAt?: string
   role?: PlayerRole | null // cosmetic label; null/undefined = none
+  isClaimed?: boolean // linked to a real account (Verified badge); false/undefined = guest entry
 }
 
 // ---- Player admin ----

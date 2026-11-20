@@ -47,6 +47,7 @@ export function usePlayers(isConfigured: boolean) {
           totalPoints: item.total_points ?? 0,
           avatarUrl: item.avatar_url ?? null, // resolved in the view; missing before the migration
           role: isPlayerRole(item.role_key) ? item.role_key : null, // absent until the role view migration
+          isClaimed: item.is_claimed === true, // absent until the claimed view migration
         }))
         setPlayers(mapped)
         localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))

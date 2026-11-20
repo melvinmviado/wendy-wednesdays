@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { BadgeCheck } from 'lucide-react'
 import { PlayerScore } from '../types/leaderboard'
 import { Avatar } from './Avatar'
 import { RankBadge } from './RankBadge'
@@ -108,6 +109,13 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                         <span className={`truncate ${podium ? `font-bold ${tone.ink}` : 'font-semibold text-ink'}`}>
                           {player.name}
                         </span>
+                        {player.isClaimed && (
+                          <BadgeCheck
+                            className="w-4 h-4 shrink-0 text-brand"
+                            aria-label="Verified league member"
+                            role="img"
+                          />
+                        )}
                         <RankMovement movement={move} />
                       </div>
                     </td>

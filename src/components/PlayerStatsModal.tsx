@@ -18,10 +18,11 @@ interface PlayerStatsModalProps {
   onClose: () => void
   onSelectWeek?: (weekNumber: number) => void // jump to that week in Weekly Results
   renderExtra?: (player: PlayerScore) => React.ReactNode // content under the stats
+  onSignIn?: () => void // when given, unclaimed players show a "claim your profile" prompt that calls this
 }
 
 // Owns data, focus/scroll behaviour and the exit transition; PlayerStatsDialog does the rendering.
-export const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({ selected, onClose, onSelectWeek, renderExtra }) => {
+export const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({ selected, onClose, onSelectWeek, renderExtra, onSignIn }) => {
   const panelRef = useRef<HTMLDivElement>(null)
   // Keep the last player mounted while the exit transition plays
   const [lingering, setLingering] = useState<SelectedPlayer | null>(null)
@@ -57,6 +58,7 @@ export const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({ selected, on
       onClose={onClose}
       onSelectWeek={onSelectWeek}
       extra={renderExtra?.(current.player)}
+      onSignIn={onSignIn}
     />
   )
 }

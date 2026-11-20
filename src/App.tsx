@@ -30,7 +30,9 @@ import { Toasts } from './components/admin/Toasts'
 import { RsvpDock } from './components/rsvp/RsvpDock'
 
 export default function App() {
-  const { signOut, isConfigured, isSignedIn, returnError } = useAuth()
+  const { signOut, isConfigured, isSignedIn, returnError, user } = useAuth()
+  // Same test as ClaimSection: these users get the claim box instead of the sign-in prompt
+  const canClaim = isConfigured && isSignedIn && !!user && !user.is_anonymous
   const { isAdmin } = useIsAdmin()
   const navigate = useNavigate()
 
@@ -254,6 +256,14 @@ export default function App() {
                   setCurrentView('weekly-results')
                 }}
                 renderExtra={(player) => <ClaimSection playerId={player.id} playerName={player.name} />}
+                onSignIn={
+                  isConfigured && !canClaim
+                    ? () => {
+                        setStatsPlayer(null)
+                        setIsAuthModalOpen(true)
+                      }
+                    : undefined
+                }
               />
             </section>
 
