@@ -164,6 +164,31 @@ async function updateRow(id: string, fields: Record<string, unknown>): Promise<R
   }
 }
 
+/** Adds an active player with no history yet. The leaderboard view computes their totals from weekly scores. */
+export async function createPlayer(name: string): Promise<Result<PlayerScore>> {
+  const clean = name.trim()
+  if (!clean) return fail('INVALID_NAME', 'Player name cannot be blank.')
+
+  if (!isSupabaseConfigured) {
+    const all = readLocal()
+    if (localNameTaken(all, clean, '')) return fail('DUPLICATE_NAME', 'Another active player already has that name.')
+    const player: PlayerScore = { id: Date.now().toString(), name: clean, weeksPlayed: 0, totalPoints: 0, archivedAt: null }
+    writeLocal([player, ...all])
+    return ok(player)
+  }
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .insert({ name: clean, weeks_played: 0, total_points: 0 })
+      .select()
+      .single()
+    if (error) return { ok: false, error: toAdminError(error) }
+    return ok(toPlayer(data as PlayerRow))
+  } catch (e: unknown) {
+    return { ok: false, error: toAdminError(e) }
+  }
+}
+
 /** Edit admin-editable fields. Currently the name only. */
 export async function updatePlayer(id: string, patch: PlayerPatch): Promise<Result<PlayerScore>> {
   const fields: Record<string, unknown> = {}

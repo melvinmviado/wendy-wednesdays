@@ -101,3 +101,16 @@ describe('PlayerActionsMenu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })
+
+describe('PlayerActionsMenu for an archived player', () => {
+  it('offers Restore instead of Archive, and keeps Delete below a divider', async () => {
+    const onRestore = vi.fn()
+    render(<PlayerActionsMenu playerName="Bo" onRename={() => {}} onArchive={() => {}} onRestore={onRestore} onDelete={() => {}} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Bo' }))
+    expect(screen.getAllByRole('menuitem').map((i) => i.textContent?.trim())).toEqual(['Rename', 'Restore', 'Delete'])
+    const menu = screen.getByRole('menu')
+    expect(menu.querySelector('[role="separator"]')?.nextElementSibling).toHaveTextContent('Delete')
+    await userEvent.click(screen.getByRole('menuitem', { name: /restore/i }))
+    expect(onRestore).toHaveBeenCalled()
+  })
+})

@@ -78,7 +78,10 @@ export function usePlayerAdmin({ enabled, players, setPlayers, toast, refresh }:
   const rename = async (player: PlayerScore, name: string): Promise<Result<PlayerScore>> => {
     const res = await optimistic(
       player.id,
-      () => setPlayers((list) => list.map((p) => (p.id === player.id ? { ...p, name } : p))),
+      () => {
+        setPlayers((list) => list.map((p) => (p.id === player.id ? { ...p, name } : p)))
+        setArchived((list) => list.map((p) => (p.id === player.id ? { ...p, name } : p)))
+      },
       () => renamePlayer(player.id, name)
     )
     if (res.ok) {

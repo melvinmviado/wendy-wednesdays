@@ -1,25 +1,23 @@
 import React, { useState } from 'react'
 import { Check, Loader2, X } from 'lucide-react'
 import type { ClaimQueue } from '../../hooks/useClaimQueue'
-import { ModalShell, modalBtn, modalBtnDanger, modalBtnQuiet } from '../admin/ModalShell'
+import { modalBtn, modalBtnDanger, modalBtnQuiet } from '../admin/ModalShell'
 
-interface ClaimRequestsDialogProps {
+interface ClaimRequestsPanelProps {
   queue: ClaimQueue
-  onClose: () => void
 }
 
 const who = (name: string | null) => name || 'Unnamed account'
 const heading = 'text-sm font-semibold text-ink-soft'
 
-/** Admin-only: approve or reject pending claims, and unlink players that already have an account. */
-export const ClaimRequestsDialog: React.FC<ClaimRequestsDialogProps> = ({ queue, onClose }) => {
+/** Admin-only (shown on /admin/claims): approve or reject pending claims, and unlink players that already have an account. */
+export const ClaimRequestsPanel: React.FC<ClaimRequestsPanelProps> = ({ queue }) => {
   const { requests, linked, loading, error, actionError, busyId, approve, reject, unlink, reload } = queue
   const [confirmUnlink, setConfirmUnlink] = useState<string | null>(null)
   const empty = !loading && !error && requests.length === 0
 
   return (
-    <ModalShell title="Player claims" onClose={onClose}>
-      <div className="mt-4 flex max-h-[65dvh] flex-col gap-5 overflow-y-auto pr-1" aria-live="polite">
+    <div className="flex flex-col gap-5" aria-live="polite">
         {actionError && (
           <p role="alert" className="text-sm text-brand-hover [overflow-wrap:anywhere]">
             {actionError}
@@ -104,7 +102,6 @@ export const ClaimRequestsDialog: React.FC<ClaimRequestsDialogProps> = ({ queue,
             </section>
           </>
         )}
-      </div>
-    </ModalShell>
+    </div>
   )
 }

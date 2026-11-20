@@ -121,17 +121,17 @@ describe('UserMenu', () => {
   })
 
   const setup = () => {
-    const handlers = { onProfile: vi.fn(), onAdminTools: vi.fn(), onSignOut: vi.fn() }
+    const handlers = { onProfile: vi.fn(), onAdminDashboard: vi.fn(), onSignOut: vi.fn() }
     render(<DemoAuthProvider><UserMenu {...handlers} /></DemoAuthProvider>)
     return handlers
   }
 
-  it('opens a menu without Admin tools for a regular user', async () => {
+  it('opens a menu without the Admin dashboard item for a regular user', async () => {
     const user = userEvent.setup()
     const h = setup()
     await user.click(screen.getByRole('button', { name: /account menu/i }))
     expect(screen.getByRole('menuitem', { name: 'Profile' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Admin tools' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Admin dashboard' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('menuitem', { name: 'Sign out' }))
     expect(h.onSignOut).toHaveBeenCalled()
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
@@ -147,13 +147,37 @@ describe('UserMenu', () => {
     expect(button).toHaveFocus()
   })
 
-  it('shows Admin tools for admins', async () => {
+  it('shows one Admin dashboard item for admins and calls its handler', async () => {
     localStorage.setItem('wendy_demo_auth', JSON.stringify({ email: 'boss@example.com', role: 'admin' }))
     const user = userEvent.setup()
     const h = setup()
     await user.click(screen.getByRole('button', { name: /account menu/i }))
-    await user.click(screen.getByRole('menuitem', { name: 'Admin tools' }))
-    expect(h.onAdminTools).toHaveBeenCalled()
+    expect(screen.queryByText('Administration')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: 'Admin dashboard' }))
+    expect(h.onAdminDashboard).toHaveBeenCalled()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument() // closes on click
+  })
+
+  it('reaches Admin dashboard by keyboard, between Profile and Sign out', async () => {
+    localStorage.setItem('wendy_demo_auth', JSON.stringify({ email: 'boss@example.com', role: 'admin' }))
+    const user = userEvent.setup()
+    const h = setup()
+    await user.click(screen.getByRole('button', { name: /account menu/i }))
+    await user.keyboard('{ArrowDown}') // Profile -> Admin dashboard
+    expect(screen.getByRole('menuitem', { name: 'Admin dashboard' })).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(screen.getByRole('menuitem', { name: 'Sign out' })).toHaveFocus()
+    await user.keyboard('{ArrowUp}{Enter}')
+    expect(h.onAdminDashboard).toHaveBeenCalled()
+  })
+
+  it('shows regular users only Profile, one separator and Sign out', async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: /account menu/i }))
+    expect(screen.getAllByRole('menuitem').map((e) => e.textContent?.trim())).toEqual(['Profile', 'Sign out'])
+    expect(screen.getAllByRole('separator')).toHaveLength(1)
   })
 })
 

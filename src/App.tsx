@@ -1,164 +1,54 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router'
 import {
   Trophy,
   Search,
-  UserPlus,
   RotateCcw,
   LogIn,
   Database,
   RefreshCw,
   AlertTriangle,
-  CheckSquare,
   ClipboardList,
-  Archive
+  CheckSquare
 } from 'lucide-react'
-import { PlayerScore } from './types/leaderboard'
 import { initialPlayers } from './data/leaderboardData'
+import { usePlayers } from './hooks/usePlayers'
+import { ADMIN_ROUTES } from './pages/admin/adminRoutes'
 import { LeaderboardTable } from './components/LeaderboardTable'
 import { useRankMovement } from './hooks/useRankMovement'
 import { PlayerStatsModal, type SelectedPlayer } from './components/PlayerStatsModal'
-import { AddPlayerModal } from './components/AddPlayerModal'
 import { AuthModal } from './components/auth/AuthModal'
 import { UserMenu } from './components/auth/UserMenu'
 import { ProfileDialog } from './components/auth/ProfileDialog'
 import { ClaimSection } from './components/claims/ClaimSection'
-import { ClaimRequestsDialog } from './components/claims/ClaimRequestsDialog'
-import { useClaimQueue } from './hooks/useClaimQueue'
-import { WeeklyEntryScreen } from './components/WeeklyEntryScreen'
 import { WeeklyResultsScreen } from './components/results/WeeklyResultsScreen'
 import { WebsiteLogo } from './components/WebsiteLogo'
 import { useAuth } from './context/AuthContext'
-import { supabase } from './lib/supabase'
-import { fetchPlayers, persistActivePlayers } from './data/players'
 import { useIsAdmin } from './hooks/useIsAdmin'
 import { useToasts } from './hooks/useToasts'
-import { usePlayerAdmin } from './hooks/usePlayerAdmin'
-import { PlayerActionsMenu } from './components/admin/PlayerActionsMenu'
-import { ArchivedPlayers } from './components/admin/ArchivedPlayers'
-import { PlayerAdminDialogs } from './components/admin/PlayerAdminDialogs'
 import { Toasts } from './components/admin/Toasts'
+import { RsvpDock } from './components/rsvp/RsvpDock'
 
 export default function App() {
   const { signOut, isConfigured, isSignedIn, returnError } = useAuth()
   const { isAdmin } = useIsAdmin()
+  const navigate = useNavigate()
 
   const [statsPlayer, setStatsPlayer] = useState<SelectedPlayer | null>(null)
   const [resultsWeek, setResultsWeek] = useState<number | null>(null)
-  const [currentView, setCurrentView] = useState<'leaderboard' | 'weekly-results' | 'weekly-entry'>('leaderboard')
-  const [players, setPlayers] = useState<PlayerScore[]>(() => {
-    const saved = localStorage.getItem('wendy_leaderboard_players')
-    if (saved) {
-      try {
-        return (JSON.parse(saved) as PlayerScore[]).filter((p) => !p.archivedAt)
-      } catch {
-        // fallback
-      }
-    }
-    return initialPlayers
-  })
+  const [currentView, setCurrentView] = useState<'leaderboard' | 'weekly-results'>('leaderboard')
+  const { players, setPlayers, loadingDb, dbError, refresh: fetchSupabasePlayers } = usePlayers(isConfigured)
 
   const movement = useRankMovement(players)
   const [searchQuery, setSearchQuery] = useState('')
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [isClaimsOpen, setIsClaimsOpen] = useState(false)
-  const claimQueue = useClaimQueue(isAdmin && isConfigured)
 
   // A failed magic-link / Google return (expired link, denied consent) reopens the dialog with the reason.
   useEffect(() => {
     if (returnError) setIsAuthModalOpen(true)
   }, [returnError])
-  const [loadingDb, setLoadingDb] = useState(false)
-  const [dbError, setDbError] = useState<string | null>(null)
-
-  // Fetch players from database (prioritizing the computed season_leaderboard view)
-  const fetchSupabasePlayers = useCallback(async () => {
-    if (!isConfigured) return
-
-    setLoadingDb(true)
-    setDbError(null)
-
-    try {
-      // 1. Try querying the database-computed view
-      const { data: viewData, error: viewError } = await supabase
-        .from('season_leaderboard')
-        .select('*')
-        .order('total_points', { ascending: false })
-
-      if (!viewError && viewData && viewData.length > 0) {
-        const mapped: PlayerScore[] = viewData.map((item) => ({
-          id: item.id,
-          name: item.name,
-          weeksPlayed: item.weeks_played ?? 0,
-          totalPoints: item.total_points ?? 0,
-          avatarUrl: item.avatar_url ?? null, // resolved in the view; missing before the migration
-        }))
-        setPlayers(mapped)
-        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))
-        return
-      }
-
-      // 2. Fallback to direct players table if view is not yet created (archived players excluded)
-      const result = await fetchPlayers()
-      if (!result.ok) throw new Error(result.error.message)
-
-      if (result.data.length > 0) {
-        setPlayers(result.data)
-        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(result.data))
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch from database'
-      setDbError(msg)
-    } finally {
-      setLoadingDb(false)
-    }
-  }, [isConfigured])
-
-  // Load on mount and setup real-time subscriptions
-  useEffect(() => {
-    if (isConfigured) {
-      fetchSupabasePlayers()
-
-      // Subscribe to real-time changes on both weekly_scores and players
-      const channel = supabase
-        .channel('public:leaderboard_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'weekly_scores' },
-          () => {
-            fetchSupabasePlayers()
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'players' },
-          () => {
-            fetchSupabasePlayers()
-          }
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    }
-  }, [isConfigured, fetchSupabasePlayers])
-
   const toasts = useToasts()
-  const admin = usePlayerAdmin({
-    enabled: isAdmin,
-    players,
-    setPlayers,
-    toast: toasts,
-    refresh: fetchSupabasePlayers,
-  })
-
-  const handleAddPlayer = (newPlayer: PlayerScore) => {
-    const updated = [newPlayer, ...players]
-    setPlayers(updated)
-    persistActivePlayers(updated)
-  }
 
   const handleResetData = () => {
     if (window.confirm('Reset leaderboard to default initial players?')) {
@@ -168,21 +58,8 @@ export default function App() {
     }
   }
 
-  // Handle clicking "Add Player" - requires admin
-  const handleOpenAddPlayer = () => {
-    if (!isAdmin) {
-      setIsAuthModalOpen(true)
-    } else {
-      setIsAddModalOpen(true)
-    }
-  }
-
   // Navigation tab switcher
-  const handleSelectView = (view: 'leaderboard' | 'weekly-results' | 'weekly-entry') => {
-    if (view === 'weekly-entry' && !isAdmin) {
-      setIsAuthModalOpen(true)
-      return
-    }
+  const handleSelectView = (view: 'leaderboard' | 'weekly-results') => {
     setResultsWeek(null) // a manual tab switch should open the default week, not a stale jump target
     setCurrentView(view)
   }
@@ -236,16 +113,7 @@ export default function App() {
             {isSignedIn ? (
               <UserMenu
                 onProfile={() => setIsProfileOpen(true)}
-                onAdminTools={() => handleSelectView('weekly-entry')}
-                onClaims={
-                  isConfigured && !claimQueue.unavailable
-                    ? () => {
-                        setIsClaimsOpen(true)
-                        void claimQueue.reload()
-                      }
-                    : undefined
-                }
-                pendingClaims={claimQueue.requests.length}
+                onAdminDashboard={() => navigate(ADMIN_ROUTES.dashboard)}
                 onSignOut={() => {
                   signOut()
                   setCurrentView('leaderboard')
@@ -266,9 +134,7 @@ export default function App() {
             {([
               ['leaderboard', Trophy, 'Leaderboard'],
               ['weekly-results', ClipboardList, 'Results'],
-              ['weekly-entry', CheckSquare, 'Weekly Entry'],
             ] as const)
-              .filter(([view]) => view !== 'weekly-entry' || isAdmin)
               .map(([view, Icon, label]) => (
               <button
                 key={view}
@@ -297,14 +163,7 @@ export default function App() {
           </div>
         )}
 
-        {currentView === 'weekly-entry' && isAdmin ? (
-          <WeeklyEntryScreen
-            roster={players}
-            onBackToLeaderboard={() => setCurrentView('leaderboard')}
-            onLeaderboardUpdated={fetchSupabasePlayers}
-            onAddNewPlayerToRoster={handleAddPlayer}
-          />
-        ) : currentView === 'weekly-results' ? (
+        {currentView === 'weekly-results' ? (
           <WeeklyResultsScreen isAdmin={isAdmin} initialWeek={resultsWeek} />
         ) : (
           <div className="flex flex-col gap-8">
@@ -361,26 +220,7 @@ export default function App() {
               </div>
 
               {isAdmin && (
-                <button onClick={handleOpenAddPlayer} className={btnBrand} title="Add New Player">
-                  <UserPlus className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Add Player</span>
-                </button>
-              )}
-
-              {isAdmin && (
-                <button
-                  onClick={admin.toggleArchived}
-                  aria-pressed={admin.showArchived}
-                  className={`${btnQuiet} ${admin.showArchived ? 'bg-raised' : ''}`}
-                  title="Show archived players"
-                >
-                  <Archive className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Archived{admin.archived.length > 0 ? ` (${admin.archived.length})` : ''}</span>
-                </button>
-              )}
-
-              {isAdmin && (
-                <button onClick={() => setCurrentView('weekly-entry')} className={`${btn} bg-ink text-ground hover:bg-ink-soft`} title="Record Weekly Entry">
+                <button onClick={() => navigate(ADMIN_ROUTES.results)} className={`${btn} bg-ink text-ground hover:bg-ink-soft`} title="Record Weekly Entry">
                   <CheckSquare className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Record Week</span>
                 </button>
@@ -405,18 +245,6 @@ export default function App() {
                 searchQuery={searchQuery}
                 onSelectPlayer={setStatsPlayer}
                 movement={movement}
-                renderActions={
-                  isAdmin
-                    ? (player) => (
-                        <PlayerActionsMenu
-                          playerName={player.name}
-                          onRename={() => admin.openDialog('rename', player)}
-                          onArchive={() => admin.openDialog('archive', player)}
-                          onDelete={() => admin.openDialog('delete', player)}
-                        />
-                      )
-                    : undefined
-                }
               />
               <PlayerStatsModal
                 selected={statsPlayer}
@@ -429,17 +257,6 @@ export default function App() {
               />
             </section>
 
-            {isAdmin && admin.showArchived && (
-              <ArchivedPlayers
-                players={admin.archived}
-                loading={admin.archivedLoading}
-                error={admin.archivedError}
-                pendingIds={admin.pendingIds}
-                onRestore={admin.restore}
-                onDelete={(player) => admin.openDialog('delete', player)}
-                onRetry={admin.loadArchived}
-              />
-            )}
           </div>
         )}
 
@@ -453,16 +270,8 @@ export default function App() {
         </footer>
       </main>
 
-      <AddPlayerModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAddPlayer={handleAddPlayer}
-        onRequireAuth={() => setIsAuthModalOpen(true)}
-      />
-
-      {isAdmin && <PlayerAdminDialogs admin={admin} />}
-      {isAdmin && isClaimsOpen && <ClaimRequestsDialog queue={claimQueue} onClose={() => setIsClaimsOpen(false)} />}
       <Toasts toasts={toasts.toasts} onDismiss={toasts.dismiss} />
+      <RsvpDock players={players} toast={toasts} />
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       {isProfileOpen && (

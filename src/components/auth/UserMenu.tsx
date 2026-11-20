@@ -1,21 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { CheckSquare, LogOut, ShieldCheck, User as UserIcon, UserCheck } from 'lucide-react'
+import { LayoutDashboard, LogOut, ShieldCheck, User as UserIcon } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar } from '../Avatar'
 
 interface UserMenuProps {
   onProfile: () => void
-  onAdminTools: () => void
-  onClaims?: () => void // admins only; omit to hide the item
-  pendingClaims?: number
+  onAdminDashboard: () => void // shown to admins only
   onSignOut: () => void
 }
 
 const item =
   'flex w-full items-center gap-2.5 min-h-10 px-3 rounded-lg text-sm text-ink hover:bg-raised focus:bg-raised outline-none transition-colors cursor-pointer text-left'
 
-/** Avatar button that opens Profile / Admin tools (admins only) / Sign out. */
-export const UserMenu: React.FC<UserMenuProps> = ({ onProfile, onAdminTools, onClaims, pendingClaims = 0, onSignOut }) => {
+/** Avatar button that opens Profile / Admin dashboard (admins only) / Sign out. */
+export const UserMenu: React.FC<UserMenuProps> = ({ onProfile, onAdminDashboard, onSignOut }) => {
   const { user, profile, isAdmin } = useAuth()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -89,20 +87,11 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onProfile, onAdminTools, onC
             <UserIcon className="w-4 h-4 text-ink-soft" aria-hidden="true" /> Profile
           </button>
           {isAdmin && (
-            <button role="menuitem" tabIndex={-1} className={item} onClick={choose(onAdminTools)}>
-              <CheckSquare className="w-4 h-4 text-ink-soft" aria-hidden="true" /> Admin tools
+            <button role="menuitem" tabIndex={-1} className={item} onClick={choose(onAdminDashboard)}>
+              <LayoutDashboard className="w-4 h-4 text-ink-soft" aria-hidden="true" /> Admin dashboard
             </button>
           )}
-          {isAdmin && onClaims && (
-            <button role="menuitem" tabIndex={-1} className={item} onClick={choose(onClaims)}>
-              <UserCheck className="w-4 h-4 text-ink-soft" aria-hidden="true" /> Player claims
-              {pendingClaims > 0 && (
-                <span className="ml-auto rounded-full bg-brand px-2 text-xs font-bold text-brand-ink" aria-label={`${pendingClaims} pending`}>
-                  {pendingClaims}
-                </span>
-              )}
-            </button>
-          )}
+          <div role="separator" className="my-1.5 border-t border-line" />
           <button role="menuitem" tabIndex={-1} className={item} onClick={choose(onSignOut)}>
             <LogOut className="w-4 h-4 text-ink-soft" aria-hidden="true" /> Sign out
           </button>

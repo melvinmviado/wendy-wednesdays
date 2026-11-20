@@ -16,6 +16,12 @@
   --color-bronze: #e08a2e;
 }
 
+/* Height of the fixed RSVP dock (src/components/rsvp). Gives h-dock, pb-dock, and var(--spacing-dock) for
+   anything that has to clear it: the toasts and the admin save bar. Add env(safe-area-inset-bottom) where needed. */
+@theme {
+  --spacing-dock: 4rem;
+}
+
 /* Player stats modal: bottom sheet on mobile, centered dialog on desktop */
 @theme {
   --animate-sheet-up: sheet-up 240ms cubic-bezier(0.22, 1, 0.36, 1);

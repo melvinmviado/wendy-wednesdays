@@ -19,7 +19,7 @@ vi.mock('../../data/claims', async (orig) => ({
 }))
 
 import { ClaimSection } from './ClaimSection'
-import { ClaimRequestsDialog } from './ClaimRequestsDialog'
+import { ClaimRequestsPanel } from './ClaimRequestsPanel'
 
 const empty = { linkedPlayer: null, latest: null }
 
@@ -119,11 +119,11 @@ const queue = (over: Partial<ClaimQueue> = {}): ClaimQueue => ({
   ...over,
 })
 
-describe('ClaimRequestsDialog', () => {
+describe('ClaimRequestsPanel', () => {
   it('lists requests with their message and approves / rejects by id', async () => {
     const q = queue()
     const user = userEvent.setup()
-    render(<ClaimRequestsDialog queue={q} onClose={() => {}} />)
+    render(<ClaimRequestsPanel queue={q} />)
     expect(screen.getByText('"court 2"')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'ada@example.com' })).toHaveAttribute('href', 'mailto:ada@example.com')
     await user.click(screen.getByRole('button', { name: /approve ada l for ada/i }))
@@ -135,7 +135,7 @@ describe('ClaimRequestsDialog', () => {
   it('needs a second click to unlink', async () => {
     const q = queue()
     const user = userEvent.setup()
-    render(<ClaimRequestsDialog queue={q} onClose={() => {}} />)
+    render(<ClaimRequestsPanel queue={q} />)
     await user.click(screen.getByRole('button', { name: /unlink grace/i }))
     expect(q.unlink).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: /confirm unlink grace/i }))
@@ -145,7 +145,7 @@ describe('ClaimRequestsDialog', () => {
   it('cancelling the unlink confirmation does nothing', async () => {
     const q = queue()
     const user = userEvent.setup()
-    render(<ClaimRequestsDialog queue={q} onClose={() => {}} />)
+    render(<ClaimRequestsPanel queue={q} />)
     await user.click(screen.getByRole('button', { name: /unlink grace/i }))
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(q.unlink).not.toHaveBeenCalled()
@@ -153,25 +153,25 @@ describe('ClaimRequestsDialog', () => {
   })
 
   it('disables every action while one is running', () => {
-    render(<ClaimRequestsDialog queue={queue({ busyId: 'r1' })} onClose={() => {}} />)
+    render(<ClaimRequestsPanel queue={queue({ busyId: 'r1' })} />)
     for (const b of screen.getAllByRole('button', { name: /approve|reject|unlink/i })) expect(b).toBeDisabled()
   })
 
   it('shows empty, loading, error and action-error states', async () => {
-    const { rerender } = render(<ClaimRequestsDialog queue={queue({ requests: [], linked: [] })} onClose={() => {}} />)
+    const { rerender } = render(<ClaimRequestsPanel queue={queue({ requests: [], linked: [] })} />)
     expect(screen.getByText('No requests waiting.')).toBeInTheDocument()
     expect(screen.getByText(/no players are linked/i)).toBeInTheDocument()
 
-    rerender(<ClaimRequestsDialog queue={queue({ requests: [], linked: [], loading: true })} onClose={() => {}} />)
+    rerender(<ClaimRequestsPanel queue={queue({ requests: [], linked: [], loading: true })} />)
     expect(screen.getByRole('status')).toHaveTextContent('Loading claims')
 
     const q = queue({ error: 'Network down' })
-    rerender(<ClaimRequestsDialog queue={q} onClose={() => {}} />)
+    rerender(<ClaimRequestsPanel queue={q} />)
     expect(screen.getByRole('alert')).toHaveTextContent('Network down')
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(q.reload).toHaveBeenCalled()
 
-    rerender(<ClaimRequestsDialog queue={queue({ actionError: 'That request has already been handled.' })} onClose={() => {}} />)
+    rerender(<ClaimRequestsPanel queue={queue({ actionError: 'That request has already been handled.' })} />)
     expect(screen.getByRole('alert')).toHaveTextContent('already been handled')
   })
 })

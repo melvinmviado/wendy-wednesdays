@@ -22,7 +22,7 @@ export const EntryBoard: React.FC<{ w: WeeklyEntry; rosterSize: number }> = ({ w
         </div>
       </div>
 
-      <div className="sticky bottom-4 z-20 w-full pt-2">
+      <div className="sticky bottom-[calc(var(--spacing-dock)+env(safe-area-inset-bottom)+1rem)] z-20 w-full pt-2">
         <div className="flex w-full flex-col items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-lg shadow-ground sm:flex-row">
           <p role="status" className="flex items-center gap-2 text-base text-ink-soft">
             <Trophy className="h-5 w-5 shrink-0 text-gold" />

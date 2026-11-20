@@ -7,8 +7,12 @@ interface ToastsProps {
   onDismiss: (id: number) => void
 }
 
+// bottom-dock keeps toasts clear of the fixed RSVP bar (and the phone's home indicator).
 export const Toasts: React.FC<ToastsProps> = ({ toasts, onDismiss }) => (
-  <div aria-live="polite" className="fixed bottom-4 right-4 left-4 sm:left-auto z-[60] flex flex-col gap-2 sm:w-96">
+  <div
+    aria-live="polite"
+    className="fixed bottom-[calc(var(--spacing-dock)+env(safe-area-inset-bottom)+0.75rem)] right-4 left-4 sm:left-auto z-[60] flex flex-col gap-2 sm:w-96"
+  >
     {toasts.map((t) => (
       <div
         key={t.id}
@@ -23,6 +27,17 @@ export const Toasts: React.FC<ToastsProps> = ({ toasts, onDismiss }) => (
           <CheckCircle2 className="w-5 h-5 shrink-0 text-ok" aria-hidden="true" />
         )}
         <p className="flex-1 min-w-0 wrap-break-word">{t.message}</p>
+        {t.action && (
+          <button
+            onClick={() => {
+              t.action?.onClick()
+              onDismiss(t.id)
+            }}
+            className="shrink-0 min-h-11 -my-2 px-3 rounded-lg text-sm font-bold text-ink underline underline-offset-2 hover:text-brand-hover cursor-pointer"
+          >
+            {t.action.label}
+          </button>
+        )}
         <button
           onClick={() => onDismiss(t.id)}
           aria-label="Dismiss notification"

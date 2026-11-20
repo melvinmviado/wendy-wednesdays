@@ -85,9 +85,9 @@ Vite bakes these in **at build time**, so changing one needs a new deployment. S
 
 - [ ] Deploy. Open the site signed out: leaderboard loads, avatars (if any) lazy-load, initials otherwise.
 - [ ] Sign in as an existing admin (an old session should keep working): the account menu shows
-      **Admin tools**, the Weekly Entry tab is visible, you can save a week, add/rename/archive a player.
+      **Enter weekly results**, the Weekly Entry tab is visible, you can save a week, add/rename/archive a player.
 - [ ] Create a brand-new account (use a different browser): it signs in at once, the menu has **no**
-      Admin tools, and no admin controls appear.
+      Enter weekly results, and no admin controls appear.
 - [ ] Magic link: request one, open it on the same device, confirm you land signed in with a clean URL
       (no `#access_token` or `?code=`).
 - [ ] Profile: change the display name, upload a photo, confirm it shows in the header menu; remove it.
@@ -120,6 +120,6 @@ Vite bakes these in **at build time**, so changing one needs a new deployment. S
   be linked. Admin rights are never derived from an email address, so this is not an escalation path, but
   turning confirmation ON is the safer setting once SMTP is configured.
 - **Claim requests:** users request from a player's stats dialog; admins approve/reject/unlink under
-  account menu > Player claims. Users cannot withdraw a request (no delete permission). The email an admin sees is
+  account menu > Player name claims. Users cannot withdraw a request (no delete permission). The email an admin sees is
   the one the requester signed up with and is unverified while email confirmation is OFF.
 - **Profile photo changes** appear on the leaderboard after the next load (no live updates).

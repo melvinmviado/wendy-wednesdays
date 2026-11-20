@@ -1,20 +1,22 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { MoreVertical, Pencil, Archive, Trash2 } from 'lucide-react'
+import { MoreVertical, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 
 interface PlayerActionsMenuProps {
   playerName: string
   onRename: () => void
   onArchive: () => void
+  /** Set for an archived player: the menu then offers Restore in place of Archive. */
+  onRestore?: () => void
   onDelete: () => void
 }
 
 const ITEM =
   'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-raised focus-visible:bg-raised focus-visible:outline-none cursor-pointer'
 const MENU_WIDTH = 176
-const MENU_HEIGHT = 132
+const MENU_HEIGHT = 140
 
 /** Admin-only row menu. Positioned `fixed` so the table's overflow clipping can't cut it off. */
-export const PlayerActionsMenu: React.FC<PlayerActionsMenuProps> = ({ playerName, onRename, onArchive, onDelete }) => {
+export const PlayerActionsMenu: React.FC<PlayerActionsMenuProps> = ({ playerName, onRename, onArchive, onRestore, onDelete }) => {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -102,9 +104,16 @@ export const PlayerActionsMenu: React.FC<PlayerActionsMenuProps> = ({ playerName
           <button role="menuitem" type="button" className={ITEM} onClick={choose(onRename)}>
             <Pencil className="w-4 h-4" aria-hidden="true" /> Rename
           </button>
-          <button role="menuitem" type="button" className={ITEM} onClick={choose(onArchive)}>
-            <Archive className="w-4 h-4" aria-hidden="true" /> Archive
-          </button>
+          {onRestore ? (
+            <button role="menuitem" type="button" className={ITEM} onClick={choose(onRestore)}>
+              <ArchiveRestore className="w-4 h-4" aria-hidden="true" /> Restore
+            </button>
+          ) : (
+            <button role="menuitem" type="button" className={ITEM} onClick={choose(onArchive)}>
+              <Archive className="w-4 h-4" aria-hidden="true" /> Archive
+            </button>
+          )}
+          <div role="separator" className="my-1 border-t border-line" />
           <button role="menuitem" type="button" className={`${ITEM} text-brand-hover`} onClick={choose(onDelete)}>
             <Trash2 className="w-4 h-4" aria-hidden="true" /> Delete
           </button>
