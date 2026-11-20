@@ -7,7 +7,7 @@ import type { RsvpAdminActions, RsvpError, RsvpIdentity, RsvpRosterEntry } from 
 import type { EventSettings } from '../../lib/eventSettings'
 import { formatSessionDate, type RsvpPhase } from '../../utils/rsvpSchedule'
 import { Avatar } from '../Avatar'
-import { AdminRemoveButton } from './AdminRemoveButton'
+import { AdminRowActions } from './AdminRowActions'
 import { RsvpAdminTools } from './RsvpAdminTools'
 import { RsvpConfirmPanel } from './RsvpConfirmPanel'
 import { RsvpIdentityPicker } from './RsvpIdentityPicker'
@@ -93,13 +93,9 @@ export const WhosPlayingSheet: React.FC<WhosPlayingSheetProps> = (p) => {
   }, [p.roster, p.capacity])
 
   const candidates = useMemo(() => p.players.filter((pl) => !takenIds.has(pl.id)), [p.players, takenIds])
-  // Players are removed by player id, guests by their RSVP id (never by name). An optimistic row has no real id yet.
-  const removeFor = (e: RsvpRosterEntry) => {
-    if (!p.admin || e.rsvpId === 'pending') return null
-    const { playerId, rsvpId, name } = e
-    const confirm = () => void (playerId ? panel.remove({ id: playerId, name }) : panel.removeGuest({ id: rsvpId, name }))
-    return <AdminRemoveButton rowId={playerId ?? rsvpId} name={name} disabled={p.admin.busy} onConfirm={confirm} />
-  }
+  // An optimistic row has no real id yet, so it gets no controls.
+  const removeFor = (e: RsvpRosterEntry) =>
+    !p.admin || e.rsvpId === 'pending' ? null : <AdminRowActions entry={e} roster={p.roster} players={p.players} panel={panel} busy={p.admin.busy} />
   const isMine = (e: RsvpRosterEntry) =>
     !!p.identity && (p.identity.kind === 'player' ? e.playerId === p.identity.playerId : e.isGuest && e.name.toLowerCase() === p.identity.name.trim().toLowerCase())
   // Picking is only useful while changes are still possible

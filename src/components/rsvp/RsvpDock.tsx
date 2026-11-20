@@ -165,7 +165,7 @@ export const RsvpDock: React.FC<RsvpDockProps> = ({ players, toast, api }) => {
           loading={r.loading}
           error={r.error !== null}
           onRefresh={refresh}
-          admin={isAdmin ? { busy: r.adminBusy, add: r.adminAddRsvp, remove: r.adminRemoveRsvp, addGuest: r.adminAddGuest, removeGuest: r.adminRemoveGuest } : undefined}
+          admin={isAdmin ? { busy: r.adminBusy, add: r.adminAddRsvp, remove: r.adminRemoveRsvp, addGuest: r.adminAddGuest, removeGuest: r.adminRemoveGuest, renameGuest: r.adminRenameGuest } : undefined}
           onClose={() => (confirming ? cancelConfirm() : setSheetOpen(false))}
         />
       )}

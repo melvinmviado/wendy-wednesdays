@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { UserPlus, X } from 'lucide-react'
+import { cleanGuestName, GUEST_NAME_MAX, GUEST_NAME_MIN } from '../../utils/guestName'
 
 interface AdminAddGuestFormProps {
   /** Any admin change is in flight. */
@@ -8,10 +9,6 @@ interface AdminAddGuestFormProps {
   onAdd: (name: string) => Promise<boolean>
   onClose: () => void
 }
-
-/** Matches the database: guest names are 2 to 40 characters. */
-export const GUEST_NAME_MIN = 2
-export const GUEST_NAME_MAX = 40
 
 /**
  * Admin-only form for putting a named guest on the list. Enter or the Add button submits, the
@@ -22,7 +19,7 @@ export const AdminAddGuestForm: React.FC<AdminAddGuestFormProps> = ({ busy, onAd
   const [name, setName] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const inputId = useId()
-  const trimmed = name.trim().replace(/\s+/g, ' ')
+  const trimmed = cleanGuestName(name)
   const valid = trimmed.length >= GUEST_NAME_MIN && trimmed.length <= GUEST_NAME_MAX
 
   useEffect(() => inputRef.current?.focus(), [])

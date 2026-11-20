@@ -6,7 +6,7 @@ import { useRsvp } from '../../hooks/useRsvp'
 import type { PlayerScore } from '../../types/leaderboard'
 import type { RsvpRosterEntry } from '../../types/rsvp'
 import { formatSessionDate } from '../../utils/rsvpSchedule'
-import { AdminRemoveButton } from './AdminRemoveButton'
+import { AdminRowActions } from './AdminRowActions'
 import { RsvpAdminTools } from './RsvpAdminTools'
 import { RsvpScheduleInfo } from './RsvpScheduleInfo'
 import { Group, SHEET_POLL_MS } from './WhosPlayingSheet'
@@ -17,7 +17,7 @@ const notMine = () => false
 export const AdminRsvpList: React.FC<{ players: PlayerScore[] }> = ({ players }) => {
   const { settings } = useEventSettings()
   const r = useRsvp({ isAdmin: true, settings })
-  const panel = useAdminRsvpPanel({ busy: r.adminBusy, add: r.adminAddRsvp, remove: r.adminRemoveRsvp, addGuest: r.adminAddGuest, removeGuest: r.adminRemoveGuest })
+  const panel = useAdminRsvpPanel({ busy: r.adminBusy, add: r.adminAddRsvp, remove: r.adminRemoveRsvp, addGuest: r.adminAddGuest, removeGuest: r.adminRemoveGuest, renameGuest: r.adminRenameGuest })
   const { refresh } = r
 
   useEffect(() => {
@@ -41,13 +41,9 @@ export const AdminRsvpList: React.FC<{ players: PlayerScore[] }> = ({ players })
   if (r.unavailable) return <p className="text-sm text-muted">RSVPs aren't set up on this database yet.</p>
   const empty = going.length + waitlist.length === 0
 
-  // Players are removed by player id, guests by their RSVP id (never by name). An optimistic row has no real id yet.
-  const removeFor = (e: RsvpRosterEntry) => {
-    if (e.rsvpId === 'pending') return null
-    const { playerId, rsvpId, name } = e
-    const confirm = () => void (playerId ? panel.remove({ id: playerId, name }) : panel.removeGuest({ id: rsvpId, name }))
-    return <AdminRemoveButton rowId={playerId ?? rsvpId} name={name} disabled={r.adminBusy} onConfirm={confirm} />
-  }
+  // An optimistic row has no real id yet, so it gets no controls.
+  const removeFor = (e: RsvpRosterEntry) =>
+    e.rsvpId === 'pending' ? null : <AdminRowActions entry={e} roster={r.roster} players={players} panel={panel} busy={r.adminBusy} />
 
   return (
     <section aria-labelledby="rsvp-heading" className="overflow-hidden rounded-xl border border-line bg-surface">

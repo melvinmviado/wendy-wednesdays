@@ -67,6 +67,14 @@ export interface AdminGuestRemoveResult {
   changed: boolean
 }
 
+/** What admin_rename_guest_rsvp returns. `changed` is false when the name was already that. */
+export interface AdminGuestRenameResult {
+  rsvpId: string
+  sessionDate: string // YYYY-MM-DD, Toronto
+  name: string // as the server stored it (trimmed, spaces collapsed)
+  changed: boolean
+}
+
 /** Admin target: a roster player and, optionally, a session (null = the current run). */
 export interface AdminRsvpArgs {
   playerId: string
@@ -104,6 +112,8 @@ export interface RsvpAdminActions {
   addGuest: (name: string) => Promise<RsvpResult<AdminRsvpResult>>
   /** Deletes a guest by RSVP id. Idempotent. */
   removeGuest: (guest: AdminGuestTarget) => Promise<RsvpResult<AdminGuestRemoveResult>>
+  /** Renames a guest by RSVP id. Keeps their place in line. */
+  renameGuest: (guest: AdminGuestTarget, name: string) => Promise<RsvpResult<AdminGuestRenameResult>>
 }
 
 export type RsvpErrorCode =
@@ -112,6 +122,8 @@ export type RsvpErrorCode =
   | 'NAME_CLAIMED'
   | 'TOKEN_MISMATCH'
   | 'NAME_EXISTS_SUGGESTION'
+  | 'NAME_ON_LIST' // admin rename: another guest on this list already has that name
+  | 'GUEST_GONE' // admin rename: the guest is no longer on the list
   | 'NO_IDENTITY'
   | 'RATE_LIMITED'
   | 'INVALID_NAME'
@@ -129,6 +141,8 @@ const MESSAGES: Record<RsvpErrorCode, string> = {
   NAME_CLAIMED: 'That name belongs to a signed-in player. Sign in to RSVP as them.',
   TOKEN_MISMATCH: "That spot was set from another device, so it can't be changed here.",
   NAME_EXISTS_SUGGESTION: 'That name is already on the player list.',
+  NAME_ON_LIST: 'Another guest on the list already has that name.',
+  GUEST_GONE: 'That guest is no longer on the list.',
   NO_IDENTITY: 'Pick your name first.',
   RATE_LIMITED: 'Too many RSVPs from this device. Ask an admin for help.',
   INVALID_NAME: 'Use 2 to 40 characters for your name.',
@@ -170,5 +184,7 @@ export interface RsvpApi {
   adminAddGuest(args: AdminAddGuestArgs): Promise<AdminRsvpResult>
   /** Admin only (enforced by the database): delete a guest by its RSVP id. Idempotent. */
   adminRemoveGuest(guestId: string): Promise<AdminGuestRemoveResult>
+  /** Admin only (enforced by the database): rename a guest by its RSVP id. Idempotent. */
+  adminRenameGuest(guestId: string, name: string): Promise<AdminGuestRenameResult>
 }
 

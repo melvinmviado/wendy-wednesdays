@@ -188,4 +188,88 @@ describe('admin RSVP controls', () => {
     await settle()
     expect(within(sheet).getByRole('button', { name: /Add player/ })).toBeEnabled()
   })
+
+  describe('renaming a guest', () => {
+    const rename = (sheet: HTMLElement, name: string) => within(sheet).getByRole('button', { name: `Rename ${name}` })
+    const field = (sheet: HTMLElement) => within(sheet).getByRole('textbox', { name: /New name for/ })
+    const editor = (sheet: HTMLElement) => within(sheet).queryByRole('form', { name: /^Rename / })
+    const problem = (sheet: HTMLElement) => within(editor(sheet)!).getByRole('alert')
+    const type = (el: HTMLElement, value: string) => act(async () => { fireEvent.change(el, { target: { value } }) })
+    const enter = (el: HTMLElement) => act(async () => { fireEvent.submit(el.closest('form')!) })
+
+    it('offers the pencil on guests only, and not to a non-admin', async () => {
+      const sheet = await openSheet('admin')
+      expect(rename(sheet, 'Riley Park')).toHaveClass('h-11', 'w-11')
+      expect(within(sheet).queryByRole('button', { name: 'Rename Player 1' })).toBeNull()
+    })
+
+    it('hides it from a signed-in non-admin', async () => {
+      const sheet = await openSheet('user')
+      expect(within(sheet).queryByRole('button', { name: 'Rename Riley Park' })).toBeNull()
+    })
+
+    it('saves on Enter, updates the row, and announces it', async () => {
+      const sheet = await openSheet('admin')
+      await click(rename(sheet, 'Riley Park'))
+      expect(field(sheet)).toHaveValue('Riley Park')
+      await type(field(sheet), '  Riley   Parks ')
+      await enter(field(sheet))
+      await settle()
+      expect(list(sheet).getByText('Riley Parks')).toBeInTheDocument()
+      expect(list(sheet).queryByText('Riley Park')).toBeNull()
+      expect(editor(sheet)).toBeNull()
+      expect(within(sheet).getByRole('status')).toHaveTextContent('Riley Park renamed to Riley Parks.')
+      expect(within(sheet).getByText(/11\/24 in/)).toBeInTheDocument()
+    })
+
+    it('Escape cancels the editor, not the sheet, and returns focus to the pencil', async () => {
+      const sheet = await openSheet('admin')
+      await click(rename(sheet, 'Riley Park'))
+      await act(async () => { fireEvent.keyDown(field(sheet), { key: 'Escape' }) })
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(editor(sheet)).toBeNull()
+      expect(rename(sheet, 'Riley Park')).toHaveFocus()
+    })
+
+    it('shows an inline error for an empty name and for a duplicate, without calling the server', async () => {
+      const spy = vi.spyOn(api, 'adminRenameGuest')
+      const sheet = await openSheet('admin')
+      await click(rename(sheet, 'Riley Park'))
+      await type(field(sheet), '   ')
+      await enter(field(sheet))
+      expect(problem(sheet)).toHaveTextContent('Enter a name.')
+      await type(field(sheet), 'jamie ortiz')
+      await enter(field(sheet))
+      expect(problem(sheet)).toHaveTextContent('Another guest on the list already has that name.')
+      expect(field(sheet)).toHaveAttribute('aria-invalid', 'true')
+      expect(spy).not.toHaveBeenCalled()
+    })
+
+    it('keeps the editor open with the serverâ€™s message when the save fails', async () => {
+      vi.spyOn(api, 'adminRenameGuest').mockRejectedValue(new RsvpError('NAME_ON_LIST'))
+      const sheet = await openSheet('admin')
+      await click(rename(sheet, 'Riley Park'))
+      await type(field(sheet), 'Someone New')
+      await enter(field(sheet))
+      await settle()
+      expect(problem(sheet)).toHaveTextContent('Another guest on the list already has that name.')
+      expect(field(sheet)).toHaveValue('Someone New')
+      expect(list(sheet).getByText('Riley Park')).toBeInTheDocument() // rolled back
+    })
+
+    it('disables the field and shows a spinner state while saving', async () => {
+      let release: () => void = () => {}
+      const real = api.adminRenameGuest.bind(api)
+      vi.spyOn(api, 'adminRenameGuest').mockImplementation((id, name) => new Promise((resolve) => { release = () => resolve(real(id, name)) }))
+      const sheet = await openSheet('admin')
+      await click(rename(sheet, 'Riley Park'))
+      await type(field(sheet), 'Riley Parks')
+      await enter(field(sheet))
+      expect(field(sheet)).toBeDisabled()
+      expect(within(sheet).getByRole('button', { name: /Save/ })).toBeDisabled()
+      await act(async () => { release() })
+      await settle()
+      expect(editor(sheet)).toBeNull()
+    })
+  })
 })

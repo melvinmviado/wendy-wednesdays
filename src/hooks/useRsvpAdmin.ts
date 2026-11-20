@@ -3,6 +3,7 @@ import {
   ADMIN_ONLY_MESSAGE,
   RsvpError,
   type AdminGuestRemoveResult,
+  type AdminGuestRenameResult,
   type AdminGuestTarget,
   type RsvpApi,
   type RsvpResult,
@@ -10,7 +11,8 @@ import {
   type RsvpServerState,
 } from '../types/rsvp'
 import { toRsvpError } from '../utils/rsvpErrors'
-import { applyAdminAddGuest, applyAdminOptimistic, applyAdminOptimisticRoster, applyOptimisticRoster, applyAdminRemoveGuest, applyAdminRemoveGuestRoster } from '../utils/rsvpState'
+import { cleanGuestName } from '../utils/guestName'
+import { applyAdminAddGuest, applyAdminRenameGuestRoster, applyAdminOptimistic, applyAdminOptimisticRoster, applyOptimisticRoster, applyAdminRemoveGuest, applyAdminRemoveGuestRoster } from '../utils/rsvpState'
 import type { useRsvpSync } from './useRsvpSync'
 
 type Sync = ReturnType<typeof useRsvpSync>
@@ -129,7 +131,19 @@ export function useRsvpAdmin({ api, sync, isAdmin }: Args) {
     [api, run],
   )
 
+  /** Renames a guest by RSVP id. Name only: place in line and counts do not move. Idempotent on the server. */
+  const adminRenameGuest = useCallback(
+    (guest: AdminGuestTarget, name: string): Promise<RsvpResult<AdminGuestRenameResult>> => {
+      const clean = cleanGuestName(name)
+      return run(
+        (server, roster) => ({ server, roster: applyAdminRenameGuestRoster(roster, guest.id, clean) }),
+        () => api.adminRenameGuest(guest.id, clean),
+      )
+    },
+    [api, run],
+  )
+
   const clearAdminError = useCallback(() => setAdminError(null), [])
 
-  return { adminAddRsvp, adminRemoveRsvp, adminAddGuest, adminRemoveGuest, adminBusy, adminError, clearAdminError }
+  return { adminAddRsvp, adminRemoveRsvp, adminAddGuest, adminRemoveGuest, adminRenameGuest, adminBusy, adminError, clearAdminError }
 }

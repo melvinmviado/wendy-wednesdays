@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { formatSessionDate } from '../utils/rsvpSchedule'
-import { ADMIN_ONLY_MESSAGE, RsvpError, type AdminGuestRemoveResult, type AdminGuestTarget, type AdminRsvpResult, type AdminRsvpTarget, type RsvpAdminActions, type RsvpResult } from '../types/rsvp'
+import { ADMIN_ONLY_MESSAGE, RsvpError, type AdminGuestRemoveResult, type AdminGuestRenameResult, type AdminGuestTarget, type AdminRsvpResult, type AdminRsvpTarget, type RsvpAdminActions, type RsvpResult } from '../types/rsvp'
 
 const NOT_ADMIN = new RsvpError('FORBIDDEN', { message: ADMIN_ONLY_MESSAGE })
 
@@ -86,7 +86,23 @@ export function useAdminRsvpPanel(admin: RsvpAdminActions | undefined) {
     [admin],
   )
 
+  /**
+   * Resolves to null on success, else the message to show next to the field. The inline editor
+   * shows failures itself, so only success goes to the shared notice.
+   */
+  const renameGuest = useCallback(
+    async (guest: AdminGuestTarget, name: string): Promise<string | null> => {
+      if (!admin) return NOT_ADMIN.message
+      setNotice(null)
+      const res: RsvpResult<AdminGuestRenameResult> = await admin.renameGuest(guest, name)
+      if (!res.ok) return res.error.message
+      setNotice({ kind: 'success', text: res.data.changed ? `${guest.name} renamed to ${res.data.name}.` : `${guest.name} already has that name.` })
+      return null
+    },
+    [admin],
+  )
+
   const clearNotice = useCallback(() => setNotice(null), [])
 
-  return { notice, add, remove, addGuest, removeGuest, clearNotice }
+  return { notice, add, remove, addGuest, removeGuest, renameGuest, clearNotice }
 }

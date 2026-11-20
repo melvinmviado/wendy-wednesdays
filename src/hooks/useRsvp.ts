@@ -12,7 +12,7 @@ import {
 } from '../types/rsvp'
 import { toRsvpError } from '../utils/rsvpErrors'
 import { getPhase, getWaitlistPosition, type RsvpPhase } from '../utils/rsvpSchedule'
-import { applyOptimistic, applyOptimisticRoster, sameIdentity } from '../utils/rsvpState'
+import { applyOptimistic, applyOptimisticRoster, reconcileGuestIdentity, sameIdentity } from '../utils/rsvpState'
 import { useRsvpAdmin } from './useRsvpAdmin'
 import { useRsvpSync } from './useRsvpSync'
 
@@ -46,6 +46,16 @@ export function useRsvp({ claimedPlayer = null, api = rsvpApi, pollMs, isAdmin =
     [claimedPlayer],
   )
   const identity = claimed ?? remembered
+
+  // An admin may have renamed this device's guest: follow the row's current name, never the old one.
+  const myRsvps = server?.myRsvps
+  useEffect(() => {
+    if (!myRsvps) return
+    const next = reconcileGuestIdentity(remembered, myRsvps)
+    if (!next) return
+    saveIdentity(next)
+    setRemembered(next)
+  }, [myRsvps, remembered])
 
   // null until the first read lands, and while a stale (last week's) read is being replaced
   const phase: RsvpPhase | null = useMemo(

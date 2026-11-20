@@ -41,6 +41,10 @@ export function toRsvpError(e: unknown): RsvpError {
         suggestion: { playerId, name },
       })
     }
+    case 'RV010':
+      return new RsvpError('NAME_ON_LIST')
+    case 'P0002': // admin rename / convert: the row is gone
+      return new RsvpError('GUEST_GONE')
     case 'RV006':
       return new RsvpError('RATE_LIMITED')
     case 'RV007':

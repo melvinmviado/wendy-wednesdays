@@ -88,6 +88,66 @@ describe('useRsvpAdmin', () => {
     })
   })
 
+  describe('adminRenameGuest', () => {
+    const find = (r: { current: { roster: { rsvpId: string; isGuest: boolean; name: string; position: number | null }[] } }, name: string) =>
+      r.current.roster.find((e) => e.isGuest && e.name === name)!
+
+    it('renames by id, trimming and collapsing spaces, and keeps the place in line', async () => {
+      const { result } = await setup()
+      const riley = find(result, 'Riley Park')
+      let res
+      await act(async () => { res = await result.current.adminRenameGuest({ id: riley.rsvpId, name: riley.name }, '  Riley   Parks ') })
+      expect(res).toMatchObject({ ok: true, data: { changed: true, name: 'Riley Parks' } })
+      expect(find(result, 'Riley Parks')).toMatchObject({ rsvpId: riley.rsvpId, position: riley.position })
+      expect(result.current.inCount).toBe(11)
+    })
+
+    it("refuses another guest's name (any case) and rolls the screen back", async () => {
+      const { result } = await setup()
+      const riley = find(result, 'Riley Park')
+      let res
+      await act(async () => { res = await result.current.adminRenameGuest({ id: riley.rsvpId, name: riley.name }, 'jamie ORTIZ') })
+      expect(res).toMatchObject({ ok: false, error: { code: 'NAME_ON_LIST' } })
+      expect(find(result, 'Riley Park').rsvpId).toBe(riley.rsvpId)
+    })
+
+    it("refuses an existing player's name with a suggestion", async () => {
+      const { result } = await setup()
+      const riley = find(result, 'Riley Park')
+      let res
+      await act(async () => { res = await result.current.adminRenameGuest({ id: riley.rsvpId, name: riley.name }, 'player 3') })
+      expect(res).toMatchObject({ ok: false, error: { code: 'NAME_EXISTS_SUGGESTION' } })
+    })
+
+    it('allows changing only the case of its own name', async () => {
+      const { result } = await setup()
+      const riley = find(result, 'Riley Park')
+      let res
+      await act(async () => { res = await result.current.adminRenameGuest({ id: riley.rsvpId, name: riley.name }, 'riley park') })
+      expect(res).toMatchObject({ ok: true, data: { changed: true, name: 'riley park' } })
+    })
+
+    it("rejects an empty or one-character name, a player's row, and a missing guest", async () => {
+      const { api, result } = await setup()
+      const riley = find(result, 'Riley Park')
+      await expect(api.adminRenameGuest(riley.rsvpId, '   ')).rejects.toMatchObject({ code: 'INVALID_NAME' })
+      await expect(api.adminRenameGuest(riley.rsvpId, 'R')).rejects.toMatchObject({ code: 'INVALID_NAME' })
+      const playerRow = result.current.roster.find((e) => e.playerId === 'p1')!
+      await expect(api.adminRenameGuest(playerRow.rsvpId, 'Someone')).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      await expect(api.adminRenameGuest('demo-nope', 'Someone')).rejects.toMatchObject({ code: 'GUEST_GONE' })
+    })
+
+    it('refuses without calling the server when the caller is not an admin', async () => {
+      const { api, result } = await setup({ isAdmin: false })
+      const spy = vi.spyOn(api, 'adminRenameGuest')
+      const riley = find(result, 'Riley Park')
+      let res
+      await act(async () => { res = await result.current.adminRenameGuest({ id: riley.rsvpId, name: riley.name }, 'Someone Else') })
+      expect(res).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } })
+      expect(spy).not.toHaveBeenCalled()
+    })
+  })
+
   it('adds a player who has not RSVP\'d, leaving the admin\'s own status alone', async () => {
     const { result } = await setup()
     expect(result.current.inCount).toBe(11)

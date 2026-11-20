@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { RsvpIdentity, RsvpRosterEntry, RsvpServerState } from '../types/rsvp'
-import { applyOptimistic, applyOptimisticRoster, matchesIdentity, sameIdentity, splitCounts } from './rsvpState'
+import type { MyRsvp, RsvpIdentity, RsvpRosterEntry, RsvpServerState } from '../types/rsvp'
+import { applyOptimistic, applyOptimisticRoster, matchesIdentity, reconcileGuestIdentity, sameIdentity, splitCounts } from './rsvpState'
 
 const state = (over: Partial<RsvpServerState> = {}): RsvpServerState => ({
   sessionDate: '2026-11-25', capacity: 4, cutoffAt: new Date(0), liveStart: new Date(0), liveEnd: new Date(0), serverNow: new Date(0),
@@ -92,5 +92,24 @@ describe('applyOptimisticRoster', () => {
   it('leaves the list alone for a no-op', () => {
     expect(applyOptimisticRoster(roster, 'in', { kind: 'player', playerId: 'ann', name: 'Ann' })).toBe(roster)
     expect(applyOptimisticRoster(roster, 'out', { kind: 'player', playerId: 'zz', name: 'Zed' })).toBe(roster)
+  })
+})
+
+describe('reconcileGuestIdentity', () => {
+  const row = (name: string, isGuest = true): MyRsvp => ({ rsvpId: name, playerId: isGuest ? null : 'p1', name, isGuest, status: 'in', position: 1 })
+  const jon: RsvpIdentity = { kind: 'guest', name: 'Jon' }
+
+  it('adopts the renamed guest row', () => {
+    expect(reconcileGuestIdentity(jon, [row('John')])).toEqual({ kind: 'guest', name: 'John' })
+  })
+  it('leaves a matching name, a player identity and no identity alone', () => {
+    expect(reconcileGuestIdentity(jon, [row(' jon ')])).toBeNull()
+    expect(reconcileGuestIdentity({ kind: 'player', playerId: 'p1', name: 'Pat' }, [row('John')])).toBeNull()
+    expect(reconcileGuestIdentity(null, [row('John')])).toBeNull()
+  })
+  it('does nothing when it is ambiguous or there is no guest row', () => {
+    expect(reconcileGuestIdentity(jon, [row('John'), row('Ann')])).toBeNull()
+    expect(reconcileGuestIdentity(jon, [row('Pat', false)])).toBeNull()
+    expect(reconcileGuestIdentity(jon, [])).toBeNull()
   })
 })

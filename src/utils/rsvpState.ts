@@ -25,6 +25,19 @@ export function sameIdentity(a: RsvpIdentity | null, b: RsvpIdentity | null): bo
   return b.kind === 'guest' && normalizeName(a.name) === normalizeName(b.name)
 }
 
+/**
+ * A device remembers the guest name it RSVP'd as. If an admin renamed that guest, the name no
+ * longer matches any of this device's rows and the old name would create a duplicate. When the
+ * device holds exactly one guest row and the remembered name matches none of them, returns the
+ * identity to adopt (that row's current name); otherwise null.
+ */
+export function reconcileGuestIdentity(remembered: RsvpIdentity | null, mine: MyRsvp[]): RsvpIdentity | null {
+  if (remembered?.kind !== 'guest') return null
+  const guests = mine.filter((r) => r.isGuest)
+  if (guests.length !== 1 || guests.some((g) => normalizeName(g.name) === normalizeName(remembered.name))) return null
+  return { kind: 'guest', name: guests[0].name }
+}
+
 /** Confirmed vs waitlisted, for a number of people who are in. */
 export function splitCounts(total: number, capacity: number): { inCount: number; waitlistCount: number } {
   return { inCount: Math.min(total, capacity), waitlistCount: Math.max(total - capacity, 0) }
@@ -93,6 +106,11 @@ export function applyAdminRemoveGuestRoster(roster: RsvpRosterEntry[], rsvpId: s
   return roster
     .filter((e) => e !== gone)
     .map((e) => (e.status === 'in' && e.position !== null && e.position > old ? { ...e, position: e.position - 1 } : e))
+}
+
+/** The roster once a guest is renamed. Only the name changes: position, status and counts stay. */
+export function applyAdminRenameGuestRoster(roster: RsvpRosterEntry[], rsvpId: string, name: string): RsvpRosterEntry[] {
+  return roster.map((e) => (e.rsvpId === rsvpId && e.isGuest ? { ...e, name } : e))
 }
 
 /** The roster once an admin's add or remove of a roster player lands. `name` is shown for a new row. */

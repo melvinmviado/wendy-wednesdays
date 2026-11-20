@@ -11,6 +11,8 @@ describe('toRsvpError', () => {
     ['RV003', 'NAME_CLAIMED'],
     ['RV004', 'INVALID_NAME'],
     ['RV006', 'RATE_LIMITED'],
+    ['RV010', 'NAME_ON_LIST'],
+    ['P0002', 'GUEST_GONE'],
     ['RV007', 'BAD_REQUEST'],
     ['RV008', 'BAD_REQUEST'],
     ['42501', 'FORBIDDEN'],

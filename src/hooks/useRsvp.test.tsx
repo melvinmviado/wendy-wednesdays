@@ -233,7 +233,7 @@ describe('useRsvp', () => {
     at('2026-11-25T15:00:00Z')
     const getState = vi.fn().mockRejectedValue(new RsvpError('UNAVAILABLE'))
     const no = async () => { throw new Error('no') }
-    const api: RsvpApi = { getState, getRoster: async () => [], setRsvp: no, adminAddRsvp: no, adminRemoveRsvp: no, adminAddGuest: no, adminRemoveGuest: no }
+    const api: RsvpApi = { getState, getRoster: async () => [], setRsvp: no, adminAddRsvp: no, adminRemoveRsvp: no, adminAddGuest: no, adminRemoveGuest: no, adminRenameGuest: no }
     const { result } = renderHook(() => useRsvp({ api }))
     await flush()
     expect(result.current).toMatchObject({ unavailable: true, loading: false })

@@ -4,6 +4,7 @@ import {
   RsvpError,
   type AdminAddGuestArgs,
   type AdminGuestRemoveResult,
+  type AdminGuestRenameResult,
   type AdminRsvpArgs,
   type AdminRsvpResult,
   type MyRsvp,
@@ -110,6 +111,26 @@ async function callAdminGuest(run: () => PromiseLike<{ data: GuestRemoveRow | nu
   }
 }
 
+interface GuestRenameRow {
+  rsvp_id: string
+  session_date: string
+  name: string
+  changed: boolean
+}
+
+/** admin_rename_guest_rsvp: 42501 means not an admin; RV005 / RV010 / P0002 are mapped by toRsvpError. */
+async function callAdminRename(run: () => PromiseLike<{ data: GuestRenameRow | null; error: unknown }>): Promise<AdminGuestRenameResult> {
+  try {
+    const r = await call<GuestRenameRow>(run)
+    if (!r) throw new RsvpError('UNKNOWN')
+    return { rsvpId: r.rsvp_id, sessionDate: r.session_date, name: r.name, changed: r.changed }
+  } catch (e) {
+    const err = toRsvpError(e)
+    if (err.code === 'FORBIDDEN') throw new RsvpError('FORBIDDEN', { message: ADMIN_ONLY_MESSAGE })
+    throw err
+  }
+}
+
 const mapMine = (r: MyRow): MyRsvp => ({
   rsvpId: r.rsvp_id,
   playerId: r.player_id,
@@ -202,5 +223,9 @@ export const supabaseRsvpApi: RsvpApi = {
 
   adminRemoveGuest(guestId) {
     return callAdminGuest(() => supabase.rpc('admin_remove_guest_rsvp', { p_rsvp_id: guestId }))
+  },
+
+  adminRenameGuest(guestId, name) {
+    return callAdminRename(() => supabase.rpc('admin_rename_guest_rsvp', { p_rsvp_id: guestId, p_guest_name: name }))
   },
 }

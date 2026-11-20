@@ -5,6 +5,7 @@ import {
   RsvpError,
   type AdminAddGuestArgs,
   type AdminGuestRemoveResult,
+  type AdminGuestRenameResult,
   type AdminRsvpArgs,
   type AdminRsvpResult,
   type MyRsvp,
@@ -15,6 +16,7 @@ import {
   type SetRsvpResult,
 } from '../types/rsvp'
 import { CAPACITY, getScheduleTimestamps, getSessionDate, getWaitlistPosition, isOpenSessionDate } from '../utils/rsvpSchedule'
+import { cleanGuestName, GUEST_NAME_MAX, GUEST_NAME_MIN } from '../utils/guestName'
 import { normalizeName, splitCounts } from '../utils/rsvpState'
 
 // Demo mode (no Supabase): the same rules as the SQL functions, kept in memory. Nothing
@@ -275,6 +277,32 @@ export function createDemoRsvpApi(options: DemoRsvpOptions = {}): RsvpApi {
         return { rsvpId: guestId, sessionDate: date, changed: true }
       }
       return { rsvpId: guestId, sessionDate: null, changed: false }
+    },
+
+    // Same rules as admin_rename_guest_rsvp. The row keeps its token and its place in line.
+    async adminRenameGuest(guestId: string, name: string): Promise<AdminGuestRenameResult> {
+      const guestName = cleanGuestName(name)
+      if (guestName.length < GUEST_NAME_MIN || guestName.length > GUEST_NAME_MAX || /[\u0000-\u001f\u007f]/.test(guestName)) throw new RsvpError('INVALID_NAME')
+      for (const [date, rows] of sessions) {
+        const row = rows.find((r) => r.id === guestId)
+        if (!row) continue
+        if (row.playerId !== null) throw new RsvpError('BAD_REQUEST')
+        if (!isOpenSessionDate(date, now())) throw new RsvpError('BAD_REQUEST')
+        if (row.name === guestName) return { rsvpId: row.id, sessionDate: date, name: guestName, changed: false }
+        const match = players().find((p) => normalizeName(p.name) === normalizeName(guestName))
+        if (match) {
+          throw new RsvpError('NAME_EXISTS_SUGGESTION', {
+            message: `That name is already a player. Did you mean ${match.name}?`,
+            suggestion: { playerId: match.id, name: match.name },
+          })
+        }
+        if (rows.some((r) => r.id !== row.id && r.playerId === null && normalizeName(r.name) === normalizeName(guestName))) {
+          throw new RsvpError('NAME_ON_LIST')
+        }
+        row.name = guestName
+        return { rsvpId: row.id, sessionDate: date, name: guestName, changed: true }
+      }
+      throw new RsvpError('GUEST_GONE')
     },
   }
 }
