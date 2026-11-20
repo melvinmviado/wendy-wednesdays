@@ -2,6 +2,7 @@ import React, { useId, type RefObject } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import type { PlayerStats } from '../utils/playerStats'
 import { Avatar } from './Avatar'
+import { RoleBadges } from './RoleBadge'
 import { RankBadge } from './RankBadge'
 import { RankMovement } from './RankMovement'
 import { SeasonSparkline } from './stats/SeasonSparkline'
@@ -75,13 +76,16 @@ export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
           <RankBadge rank={rank} points={player.totalPoints} tied={tied} />
           <RankMovement movement={movement} />
           <Avatar name={player.name} avatarUrl={player.avatarUrl} size={40} eager />
-          <h2
-            id={titleId}
-            title={player.name}
-            className="min-w-0 flex-1 text-lg font-black leading-snug text-ink line-clamp-2 [overflow-wrap:anywhere]"
-          >
-            {player.name}
-          </h2>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            <h2
+              id={titleId}
+              title={player.name}
+              className="min-w-0 max-w-full text-lg font-black leading-snug text-ink line-clamp-2 [overflow-wrap:anywhere]"
+            >
+              {player.name}
+            </h2>
+            <RoleBadges roles={player.role ? [player.role] : []} />
+          </div>
           <button
             type="button"
             onClick={onClose}

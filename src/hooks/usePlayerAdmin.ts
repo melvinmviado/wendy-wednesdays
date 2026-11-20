@@ -4,7 +4,7 @@ import { archivePlayer, deletePlayer, fetchPlayers, renamePlayer, restorePlayer 
 import type { ToastApi } from './useToasts'
 
 export interface PlayerDialog {
-  kind: 'rename' | 'archive' | 'delete'
+  kind: 'rename' | 'archive' | 'delete' | 'role'
   player: PlayerScore
 }
 

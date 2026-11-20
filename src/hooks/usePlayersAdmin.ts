@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { createPlayer } from '../data/players'
 import type { PlayerScore, Result } from '../types/leaderboard'
 import { usePlayerAdmin } from './usePlayerAdmin'
+import { useSetPlayerRole } from './useSetPlayerRole'
 import { usePlayers } from './usePlayers'
 import type { ToastApi } from './useToasts'
 
@@ -15,6 +16,13 @@ export function usePlayersAdmin(toast: Pick<ToastApi, 'push'>) {
   const { players, setPlayers, loadingDb, dbError, refresh } = usePlayers(isConfigured)
   const admin = usePlayerAdmin({ enabled: true, players, setPlayers, toast, refresh })
   const [query, setQuery] = useState('')
+  const { loadArchived } = admin
+  // Roster (and the profile dialog, which reads from it) plus archived rows, so every view agrees.
+  const refetchAll = useCallback(() => {
+    refresh()
+    void loadArchived()
+  }, [refresh, loadArchived])
+  const roles = useSetPlayerRole({ toast, onChanged: refetchAll })
 
   const add = useCallback(
     async (name: string): Promise<Result<PlayerScore>> => {
@@ -37,5 +45,5 @@ export function usePlayersAdmin(toast: Pick<ToastApi, 'push'>) {
     return [...matched].sort((a, b) => a.name.localeCompare(b.name))
   }, [players, archived, showArchived, query])
 
-  return { admin, rows, activeCount: players.length, loading: loadingDb, error: dbError, retry: refresh, add, query, setQuery }
+  return { admin, roles, rows, activeCount: players.length, loading: loadingDb, error: dbError, retry: refresh, add, query, setQuery }
 }

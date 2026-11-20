@@ -21,7 +21,10 @@ vi.mock('../lib/supabase', () => {
     get isSupabaseConfigured() {
       return state.configured
     },
-    supabase: { from: (t: string) => (state.calls.push(`from(${t})`), builder()) },
+    supabase: {
+      from: (t: string) => (state.calls.push(`from(${t})`), builder()),
+      rpc: (name: string, args: unknown) => (state.calls.push(`rpc(${name},${JSON.stringify(args)})`), builder()),
+    },
   }
 })
 
@@ -32,6 +35,7 @@ import {
   PLAYERS_STORAGE_KEY,
   renamePlayer,
   restorePlayer,
+  setPlayerRole,
   toAdminError,
 } from './players'
 
@@ -153,5 +157,50 @@ describe('demo mode (localStorage)', () => {
 describe('toAdminError', () => {
   it('falls back to UNKNOWN with the original message', () => {
     expect(toAdminError(new Error('boom'))).toEqual({ code: 'UNKNOWN', message: 'boom' })
+  })
+})
+
+describe('player roles', () => {
+  it('maps the embedded role (object or array) and ignores unknown keys', async () => {
+    state.result = {
+      data: [
+        row({ player_roles: { role_key: 'developer' } }),
+        row({ id: 'p2', player_roles: [{ role_key: 'organizer' }] }),
+        row({ id: 'p3', player_roles: { role_key: 'wizard' } }),
+        row({ id: 'p4' }),
+      ],
+    }
+    const res = await fetchPlayers()
+    expect(res.ok && res.data.map((p) => p.role)).toEqual(['developer', 'organizer', null, null])
+    expect(state.calls).toContain('select("*, player_roles(role_key)")')
+  })
+
+  it('calls the RPC with the player and role', async () => {
+    expect((await setPlayerRole('p1', 'organizer')).ok).toBe(true)
+    expect(state.calls).toContain('rpc(set_player_role,{"p_player_id":"p1","p_role":"organizer"})')
+  })
+
+  it('clears a role by sending null', async () => {
+    await setPlayerRole('p1', null)
+    expect(state.calls).toContain('rpc(set_player_role,{"p_player_id":"p1","p_role":null})')
+  })
+
+  it('surfaces the real server message and maps permission errors', async () => {
+    state.result = { error: { code: '42501', message: 'Only admins can assign player roles' } }
+    expect(await setPlayerRole('p1', 'developer')).toEqual({
+      ok: false,
+      error: { code: 'FORBIDDEN', message: 'Only admins can assign player roles' },
+    })
+    state.result = { error: { code: '23503', message: 'Unknown role: wizard' } }
+    const res = await setPlayerRole('p1', 'developer')
+    expect(!res.ok && res.error.message).toBe('Unknown role: wizard')
+  })
+
+  it('works in demo mode', async () => {
+    state.configured = false
+    localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify([{ id: 'p1', name: 'Ann', weeksPlayed: 0, totalPoints: 0 }]))
+    expect((await setPlayerRole('p1', 'developer')).ok).toBe(true)
+    const res = await fetchPlayers()
+    expect(res.ok && res.data[0].role).toBe('developer')
   })
 })

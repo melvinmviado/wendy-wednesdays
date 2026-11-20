@@ -2,6 +2,7 @@ import React from 'react'
 import { Archive, Search } from 'lucide-react'
 import type { PlayerAdmin } from '../../hooks/usePlayerAdmin'
 import type { PlayerScore } from '../../types/leaderboard'
+import { RoleBadges } from '../RoleBadge'
 import { PlayerActionsMenu } from './PlayerActionsMenu'
 
 interface PlayerListProps {
@@ -72,10 +73,12 @@ export const PlayerList: React.FC<PlayerListProps> = ({ rows, admin, query, onQu
           return (
             <li key={p.id} className="flex items-center gap-3 px-4 py-2">
               <span className={`min-w-0 flex-1 truncate font-medium ${archived ? 'text-ink-soft' : 'text-ink'}`}>{p.name}</span>
+              <RoleBadges roles={p.role ? [p.role] : []} />
               {archived && <span className="shrink-0 rounded-full border border-line px-2 py-0.5 text-xs text-ink-soft">Archived</span>}
               <PlayerActionsMenu
                 playerName={p.name}
                 onRename={() => admin.openDialog('rename', p)}
+                onSetRole={() => admin.openDialog('role', p)}
                 onArchive={() => admin.openDialog('archive', p)}
                 onRestore={archived ? () => void admin.restore(p) : undefined}
                 onDelete={() => admin.openDialog('delete', p)}

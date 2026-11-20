@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import type { PlayerAdminError, PlayerScore, Result } from '../types/leaderboard'
 import { errorMessage } from '../utils/errorMessage'
+import { isPlayerRole, type PlayerRole } from '../types/roles'
 import { initialPlayers } from './leaderboardData'
 
 export const PLAYERS_STORAGE_KEY = 'wendy_leaderboard_players'
@@ -15,6 +16,15 @@ interface PlayerRow {
   archived_at: string | null
   updated_at: string | null
   avatar_url?: string | null // absent until the player_avatars migration is applied
+  // Embedded select: PostgREST returns an object for this one-to-one relation (array tolerated).
+  player_roles?: { role_key: string } | { role_key: string }[] | null
+}
+
+const PLAYER_SELECT = '*, player_roles(role_key)'
+
+function embeddedRole(row: PlayerRow): PlayerRole | null {
+  const r = Array.isArray(row.player_roles) ? row.player_roles[0] : row.player_roles
+  return r && isPlayerRole(r.role_key) ? r.role_key : null
 }
 
 /** Fields an admin may edit. Name only for now. */
@@ -34,6 +44,7 @@ const toPlayer = (row: PlayerRow): PlayerScore => ({
   archivedAt: row.archived_at,
   avatarUrl: row.avatar_url ?? null,
   updatedAt: row.updated_at ?? undefined,
+  role: embeddedRole(row),
 })
 
 const fail = (code: PlayerAdminError['code'], message: string): Result<never> => ({
@@ -110,11 +121,15 @@ export async function fetchPlayers(options: FetchPlayersOptions = {}): Promise<R
   }
 
   try {
-    let query = supabase.from('players').select('*').order('total_points', { ascending: false })
-    if (!includeArchived) query = query.is('archived_at', null)
-    const { data, error } = await query
+    const run = (select: string) => {
+      const query = supabase.from('players').select(select).order('total_points', { ascending: false })
+      return includeArchived ? query : query.is('archived_at', null)
+    }
+    let { data, error } = await run(PLAYER_SELECT)
+    // The roles migration may not be applied yet: fall back to a plain select instead of breaking the roster.
+    if (error && (error.code === 'PGRST200' || error.code === '42P01')) ({ data, error } = await run('*'))
     if (error) return { ok: false, error: toAdminError(error) }
-    return ok(((data ?? []) as PlayerRow[]).map(toPlayer))
+    return ok(((data ?? []) as unknown as PlayerRow[]).map(toPlayer))
   } catch (e: unknown) {
     return { ok: false, error: toAdminError(e) }
   }
@@ -261,5 +276,23 @@ export async function deletePlayer(id: string): Promise<Result<void>> {
     return ok(undefined)
   } catch (e: unknown) {
     return { ok: false, error: toAdminError(e) }
+  }
+}
+
+/** Sets (or, with null, clears) a player's cosmetic role through the admin-only RPC. Surfaces the server's message. */
+export async function setPlayerRole(playerId: string, role: PlayerRole | null): Promise<Result<null>> {
+  if (!isSupabaseConfigured) {
+    const res = updateLocal(playerId, (p) => ({ ...p, role }))
+    return res.ok ? ok(null) : res
+  }
+  try {
+    const { error } = await supabase.rpc('set_player_role', { p_player_id: playerId, p_role: role })
+    if (error) {
+      const code = error.code === '42501' ? 'FORBIDDEN' : error.code === 'P0002' ? 'NOT_FOUND' : 'UNKNOWN'
+      return fail(code, errorMessage(error, 'Could not update the role.'))
+    }
+    return ok(null)
+  } catch (e: unknown) {
+    return fail('UNKNOWN', errorMessage(e, 'Could not update the role.'))
   }
 }

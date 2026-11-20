@@ -1,3 +1,5 @@
+import type { PlayerRole } from './roles'
+
 export interface PlayerScore {
   id: string
   name: string
@@ -6,6 +8,7 @@ export interface PlayerScore {
   archivedAt?: string | null // ISO timestamp; null/undefined = active
   avatarUrl?: string | null // linked profile photo, else players.avatar_url; null = show initials
   updatedAt?: string
+  role?: PlayerRole | null // cosmetic label; null/undefined = none
 }
 
 // ---- Player admin ----

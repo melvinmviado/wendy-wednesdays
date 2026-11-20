@@ -3,6 +3,7 @@ import { initialPlayers } from '../data/leaderboardData'
 import { fetchPlayers, persistActivePlayers } from '../data/players'
 import { supabase } from '../lib/supabase'
 import type { PlayerScore } from '../types/leaderboard'
+import { isPlayerRole } from '../types/roles'
 
 /**
  * The season roster: cached in localStorage, loaded from the season_leaderboard view (falling back
@@ -45,6 +46,7 @@ export function usePlayers(isConfigured: boolean) {
           weeksPlayed: item.weeks_played ?? 0,
           totalPoints: item.total_points ?? 0,
           avatarUrl: item.avatar_url ?? null, // resolved in the view; missing before the migration
+          role: isPlayerRole(item.role_key) ? item.role_key : null, // absent until the role view migration
         }))
         setPlayers(mapped)
         localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))
@@ -79,6 +81,9 @@ export function usePlayers(isConfigured: boolean) {
           refresh()
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
+          refresh()
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'player_roles' }, () => {
           refresh()
         })
         .subscribe()

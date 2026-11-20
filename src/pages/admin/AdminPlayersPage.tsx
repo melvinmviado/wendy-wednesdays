@@ -37,7 +37,7 @@ export function AdminPlayersPage() {
         <ClaimRequestsPanel queue={claimQueue} />
       </section>
 
-      <PlayerAdminDialogs admin={p.admin} />
+      <PlayerAdminDialogs admin={p.admin} roles={p.roles} />
     </>
   )
 }
