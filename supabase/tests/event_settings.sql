@@ -114,6 +114,23 @@ begin
   exception when insufficient_privilege then null; end;
   raise notice 'PASS admin can edit, audit stamped, no delete';
 end $$;
+
+-- Regression: the client must UPDATE ... WHERE id = 1, never upsert. An upsert's ON CONFLICT DO UPDATE
+-- SET list includes id, and authenticated has no UPDATE privilege on id, so it fails for admins too.
+do $$
+begin
+  begin
+    insert into public.event_settings (id, rsvp_cutoff_at, event_start_at, event_end_at)
+      select id, rsvp_cutoff_at, event_start_at, event_end_at from public.event_settings
+    on conflict (id) do update set id = excluded.id, rsvp_cutoff_at = excluded.rsvp_cutoff_at;
+    raise exception 'FAIL upsert touching id was allowed';
+  exception when insufficient_privilege then null; end;
+  -- The shape the client uses now: no id in SET, filtered by id.
+  update public.event_settings set rsvp_cutoff_at = rsvp_cutoff_at, capacity = 31 where id = 1;
+  if (select capacity from public.event_settings where id = 1) <> 31 then
+    raise exception 'FAIL id-filtered admin update'; end if;
+  raise notice 'PASS admin update by id works; upsert on id is not allowed';
+end $$;
 reset role;
 
 rollback;

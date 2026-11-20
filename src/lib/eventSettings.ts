@@ -22,7 +22,7 @@ export type EventSettingsInput = Pick<
 >
 
 export interface EventSettingsError {
-  code: 'FORBIDDEN' | 'INVALID' | 'NETWORK' | 'UNKNOWN'
+  code: 'FORBIDDEN' | 'INVALID' | 'NOT_FOUND' | 'NETWORK' | 'UNKNOWN'
   message: string
 }
 
@@ -105,7 +105,13 @@ export async function fetchEventSettings(): Promise<EventSettingsResult<EventSet
   }
 }
 
-/** Saves the settings (admins only, enforced by RLS). Creates the row if it is somehow missing. */
+const NOT_UPDATED_MESSAGE =
+  'No settings were saved. The settings row may be missing, or your account may not be allowed to change it.'
+
+/**
+ * Saves the settings (admins only, enforced by RLS). Updates the single row (id = 1); it never
+ * writes `id`, which the database does not let clients update. Does not create a missing row.
+ */
 export async function updateEventSettings(input: EventSettingsInput): Promise<EventSettingsResult<EventSettings>> {
   const problem = validateEventSettings(input)
   if (problem) return fail('INVALID', problem)
@@ -113,24 +119,23 @@ export async function updateEventSettings(input: EventSettingsInput): Promise<Ev
   try {
     const { data, error } = await supabase
       .from('event_settings')
-      .upsert(
-        {
-          id: 1,
-          rsvp_open_at: input.rsvpOpenAt,
-          rsvp_cutoff_at: input.rsvpCutoffAt,
-          event_start_at: input.eventStartAt,
-          event_end_at: input.eventEndAt,
-          timezone: input.timezone,
-          capacity: input.capacity,
-        },
-        { onConflict: 'id' },
-      )
+      .update({
+        rsvp_open_at: input.rsvpOpenAt,
+        rsvp_cutoff_at: input.rsvpCutoffAt,
+        event_start_at: input.eventStartAt,
+        event_end_at: input.eventEndAt,
+        timezone: input.timezone,
+        capacity: input.capacity,
+      })
+      .eq('id', 1)
       .select('*')
-      .single()
+      .maybeSingle()
     if (error) {
       const err = toError(error)
       return fail(err.code, err.message)
     }
+    // RLS hides rows from a non-admin's UPDATE instead of erroring, so 0 rows is not an "Only admins" case.
+    if (!data) return fail('NOT_FOUND', NOT_UPDATED_MESSAGE)
     return ok(toSettings(data as EventSettingsRow))
   } catch (e) {
     const err = toError(e)
