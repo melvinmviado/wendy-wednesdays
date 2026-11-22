@@ -58,13 +58,21 @@ export const WeeklyResultsScreen: React.FC<WeeklyResultsScreenProps> = ({ isAdmi
       {error && (
         <div role="alert" className="p-4 rounded-xl bg-brand-soft border border-brand text-sm text-ink flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-brand-hover shrink-0" aria-hidden="true" />
-          <p className="font-semibold min-w-0 wrap-break-word">{error}</p>
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="font-semibold">
+              {results.length > 0 ? "Couldn't refresh the results. Showing the last copy we had." : "Couldn't load the weekly results."}
+            </p>
+            {isAdmin && <p className="text-ink-soft wrap-break-word">Details: {error}</p>}
+          </div>
+          <button onClick={() => void refresh()} className="shrink-0 font-bold underline hover:text-brand-hover cursor-pointer">
+            Try again
+          </button>
         </div>
       )}
 
       {!isSupabaseConfigured ? (
         <p className={message}>Weekly results need a connected database.</p>
-      ) : loading && results.length === 0 ? (
+      ) : error && results.length === 0 ? null : loading && results.length === 0 ? (
         <p role="status" className={`${message} flex items-center justify-center gap-2`}>
           <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />
           Loading results

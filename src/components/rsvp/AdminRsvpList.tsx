@@ -9,7 +9,8 @@ import { formatSessionDate } from '../../utils/rsvpSchedule'
 import { AdminRowActions } from './AdminRowActions'
 import { RsvpAdminTools } from './RsvpAdminTools'
 import { RsvpScheduleInfo } from './RsvpScheduleInfo'
-import { Group, SHEET_POLL_MS } from './WhosPlayingSheet'
+import { Group } from './RsvpGroup'
+import { SHEET_POLL_MS } from './WhosPlayingSheet'
 
 const notMine = () => false
 

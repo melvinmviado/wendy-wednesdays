@@ -95,7 +95,7 @@ wendy-wednesdays/
 
 &#x20;   ├── types/leaderboard.ts      # Shared types
 
-&#x20;   └── utils/scoring.ts          # Scoring logic (currently untracked in git)
+&#x20;   └── utils/scoring.ts          # Team overall rank and podium helpers (default points: utils/weeklyEntry.ts)
 
 
 

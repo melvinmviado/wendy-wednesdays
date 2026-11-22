@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -55,6 +56,10 @@ export default defineConfig({
     tailwindcss(),
     supabaseBuildGuard(),
   ],
+  resolve: {
+    // "@/x" imports "src/x" (CLAUDE.md convention; tsconfig.app.json has the matching paths entry)
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   build: {
     rollupOptions: {
       output: {

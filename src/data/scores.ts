@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 /** One attended weekly_scores row, with the player's name joined in. */
 export interface AttendedScore {

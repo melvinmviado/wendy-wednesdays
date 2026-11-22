@@ -137,6 +137,54 @@ export async function fetchPlayers(options: FetchPlayersOptions = {}): Promise<R
   }
 }
 
+interface StandingsRow {
+  id: string
+  name: string
+  weeks_played: number | null
+  total_points: number | null
+  avatar_url?: string | null // resolved in the view; absent before the player_avatars migration
+  role_key?: string | null // absent before the leaderboard_role migration
+  is_claimed?: boolean | null // absent before the leaderboard_claimed migration
+}
+
+/**
+ * The season standings from the database-computed season_leaderboard view (active players only),
+ * falling back to the players table on a database where the view doesn't exist yet.
+ */
+export async function fetchStandings(): Promise<PlayerScore[]> {
+  const { data, error } = await supabase.from('season_leaderboard').select('*').order('total_points', { ascending: false })
+  if (!error && data) {
+    return (data as StandingsRow[]).map((r) => ({
+      id: r.id,
+      name: r.name,
+      weeksPlayed: r.weeks_played ?? 0,
+      totalPoints: r.total_points ?? 0,
+      avatarUrl: r.avatar_url ?? null,
+      role: isPlayerRole(r.role_key) ? r.role_key : null,
+      isClaimed: r.is_claimed === true,
+    }))
+  }
+  const result = await fetchPlayers()
+  if (!result.ok) throw new Error(result.error.message)
+  return result.data
+}
+
+/**
+ * Realtime: `onScores` for weekly_scores changes, `onRoster` for players and player_roles.
+ * Returns the unsubscribe function.
+ */
+export function subscribeStandingsChanges(onScores: () => void, onRoster: () => void): () => void {
+  const channel = supabase
+    .channel('public:leaderboard_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_scores' }, onScores)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, onRoster)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'player_roles' }, onRoster)
+    .subscribe()
+  return () => {
+    void supabase.removeChannel(channel)
+  }
+}
+
 /** How many attended weeks would be erased with this player (used by the delete confirmation). */
 export async function getPlayerScoreCount(playerId: string): Promise<Result<number>> {
   if (!isSupabaseConfigured) {

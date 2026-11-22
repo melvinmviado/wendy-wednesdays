@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { initialPlayers } from '../data/leaderboardData'
-import { fetchPlayers, persistActivePlayers } from '../data/players'
+import { fetchStandings, persistActivePlayers, subscribeStandingsChanges } from '../data/players'
 import { invalidateScores } from '../data/scores'
-import { supabase } from '../lib/supabase'
 import type { PlayerScore } from '../types/leaderboard'
-import { isPlayerRole } from '../types/roles'
 
 const CACHE_KEY = 'wendy_leaderboard_players'
 /** Realtime sends one event per changed row: saving a week is a burst. Reload once after it. */
@@ -52,31 +50,7 @@ export function usePlayers(isConfigured: boolean) {
     setDbError(null)
 
     try {
-      // 1. Try querying the database-computed view
-      const { data: viewData, error: viewError } = await supabase
-        .from('season_leaderboard')
-        .select('*')
-        .order('total_points', { ascending: false })
-
-      if (!viewError && viewData) {
-        const mapped: PlayerScore[] = viewData.map((item) => ({
-          id: item.id,
-          name: item.name,
-          weeksPlayed: item.weeks_played ?? 0,
-          totalPoints: item.total_points ?? 0,
-          avatarUrl: item.avatar_url ?? null, // resolved in the view; missing before the migration
-          role: isPlayerRole(item.role_key) ? item.role_key : null, // absent until the role view migration
-          isClaimed: item.is_claimed === true, // absent until the claimed view migration
-        }))
-        apply(mapped)
-        return
-      }
-
-      // 2. Fallback to direct players table if view is not yet created (archived players excluded)
-      const result = await fetchPlayers()
-      if (!result.ok) throw new Error(result.error.message)
-
-      apply(result.data)
+      apply(await fetchStandings())
     } catch (err: unknown) {
       if (!current()) return
       const msg = err instanceof Error ? err.message : 'Failed to fetch from database'
@@ -105,16 +79,11 @@ export function usePlayers(isConfigured: boolean) {
           void refresh()
         }, REALTIME_DEBOUNCE_MS)
       }
-      const channel = supabase
-        .channel('public:leaderboard_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_scores' }, () => schedule(true))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => schedule())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'player_roles' }, () => schedule())
-        .subscribe()
+      const unsubscribe = subscribeStandingsChanges(() => schedule(true), () => schedule())
 
       return () => {
         if (timer) clearTimeout(timer)
-        supabase.removeChannel(channel)
+        unsubscribe()
       }
     }
   }, [isConfigured, refresh])

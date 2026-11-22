@@ -1,8 +1,8 @@
 import { lazy, Suspense, type ComponentProps } from 'react'
 import { Loader2 } from 'lucide-react'
-import type { PhotoCropModal as PhotoCropModalType } from './PhotoCropModal'
+import type { PhotoCropModal as PhotoCropModalType } from '@/components/results/PhotoCropModal'
 
-const PhotoCropModal = lazy(() => import('./PhotoCropModal').then((m) => ({ default: m.PhotoCropModal })))
+const PhotoCropModal = lazy(() => import('@/components/results/PhotoCropModal').then((m) => ({ default: m.PhotoCropModal })))
 
 /** The cropper, and react-easy-crop with it, is downloaded only when someone actually crops a photo. */
 export function LazyPhotoCropModal(props: ComponentProps<typeof PhotoCropModalType>) {

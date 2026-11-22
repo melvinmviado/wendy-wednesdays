@@ -8,6 +8,7 @@ import { RankMovement } from './RankMovement'
 import { SeasonSparkline } from './stats/SeasonSparkline'
 import { CareerTiles } from './stats/CareerTiles'
 import { WeeklyLog } from './stats/WeeklyLog'
+import { StatsSection as Section } from './stats/StatsSection'
 import type { SelectedPlayer } from './PlayerStatsModal'
 
 export interface PlayerStatsState {
@@ -28,15 +29,6 @@ interface PlayerStatsDialogProps {
   extra?: React.ReactNode // rendered under the stats (e.g. the claim box)
   onSignIn?: () => void // shows the "claim your profile" footer for unclaimed players
 }
-
-const Section: React.FC<{ id: string; title: string; children: React.ReactNode }> = ({ id, title, children }) => (
-  <section aria-labelledby={id} className="flex flex-col gap-2">
-    <h3 id={id} className="text-sm font-semibold text-ink-soft">
-      {title}
-    </h3>
-    {children}
-  </section>
-)
 
 // Presentational: bottom sheet on mobile, centered dialog from sm up. Data and behaviour live in PlayerStatsModal.
 export const PlayerStatsDialog: React.FC<PlayerStatsDialogProps> = ({
