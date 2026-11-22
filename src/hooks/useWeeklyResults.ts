@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { fetchWeeklyResults } from '../data/weeklyResults'
+import { getScoresVersion, subscribeScores } from '../data/scores'
 import type { WeeklyResult } from '../types/leaderboard'
 
 export function useWeeklyResults() {
@@ -21,9 +22,12 @@ export function useWeeklyResults() {
     }
   }, [])
 
+  // Reload when scores are invalidated (a save, a realtime change); the shared cache makes the
+  // first load after switching tabs free.
+  const scoresVersion = useSyncExternalStore(subscribeScores, getScoresVersion)
   useEffect(() => {
     refresh()
-  }, [refresh])
+  }, [refresh, scoresVersion])
 
   return { results, loading, error, refresh }
 }

@@ -55,6 +55,20 @@ export default defineConfig({
     tailwindcss(),
     supabaseBuildGuard(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Libraries change far less often than the app: in their own chunks, a deploy that only
+        // touches app code doesn't make every visitor download React and Supabase again.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/node_modules[\\/](react|react-dom|scheduler|react-router)[\\/]/.test(id)) return 'vendor-react'
+          if (/node_modules[\\/]@supabase[\\/]/.test(id)) return 'vendor-supabase'
+          return undefined
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     // Tests must never reach a real Supabase project, even though .env configures one for dev.

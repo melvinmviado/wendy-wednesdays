@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useEventSettings } from '../../hooks/useEventSettings'
 import { useAdminRsvpPanel } from '../../hooks/useAdminRsvpPanel'
@@ -16,17 +16,9 @@ const notMine = () => false
 /** The next run's RSVP list shown inline for admins: add player / guest, remove, waitlist. Same data and actions as the dock's sheet. */
 export const AdminRsvpList: React.FC<{ players: PlayerScore[] }> = ({ players }) => {
   const { settings } = useEventSettings()
-  const r = useRsvp({ isAdmin: true, settings })
+  // Polls at the sheet's faster rate itself (one interval, not a second one on top of the default)
+  const r = useRsvp({ isAdmin: true, settings, pollMs: SHEET_POLL_MS })
   const panel = useAdminRsvpPanel({ busy: r.adminBusy, add: r.adminAddRsvp, remove: r.adminRemoveRsvp, addGuest: r.adminAddGuest, removeGuest: r.adminRemoveGuest, renameGuest: r.adminRenameGuest })
-  const { refresh } = r
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (document.visibilityState === 'visible') void refresh()
-    }, SHEET_POLL_MS)
-    return () => clearInterval(id)
-  }, [refresh])
-
   const capacity = r.capacity ?? 0
   const { going, waitlist, takenIds } = useMemo(() => {
     const ins = r.roster.filter((e) => e.status === 'in')
@@ -61,7 +53,7 @@ export const AdminRsvpList: React.FC<{ players: PlayerScore[] }> = ({ players })
         ) : r.error && empty ? (
           <div role="alert" className="flex flex-col items-center gap-2 py-6 text-sm text-muted">
             <p>Couldn't load the list.</p>
-            <button type="button" onClick={() => void refresh()} className="min-h-11 cursor-pointer rounded-lg border border-line px-4 font-semibold text-ink hover:bg-raised">Try again</button>
+            <button type="button" onClick={() => void r.refresh()} className="min-h-11 cursor-pointer rounded-lg border border-line px-4 font-semibold text-ink hover:bg-raised">Try again</button>
           </div>
         ) : empty ? (
           <p className="py-6 text-center text-sm text-muted">Nobody's in yet.</p>

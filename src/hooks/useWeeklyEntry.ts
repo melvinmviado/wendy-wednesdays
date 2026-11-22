@@ -13,6 +13,7 @@ import {
 } from '../utils/weeklyEntry'
 import type { SaveResult } from '../components/SaveResultModal'
 import { createPlayer, persistActivePlayers } from '../data/players'
+import { invalidateScores } from '../data/scores'
 
 interface UseWeeklyEntryArgs {
   roster: PlayerScore[]
@@ -350,6 +351,7 @@ export const useWeeklyEntry = ({
 
         if (upsertError) throw upsertError
 
+        invalidateScores()
         onLeaderboardUpdated()
       } else {
         // Demo mode: local storage sync

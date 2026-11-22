@@ -17,9 +17,18 @@ interface Args {
   refresh: () => void
 }
 
+/** Put `item` back at `index` (or drop the id if it wasn't in the list), leaving every other entry as it is now. */
+function putBack(list: PlayerScore[], id: string, item: PlayerScore | undefined, index: number): PlayerScore[] {
+  const rest = list.filter((p) => p.id !== id)
+  if (!item) return rest
+  const at = Math.min(index, rest.length)
+  return [...rest.slice(0, at), item, ...rest.slice(at)]
+}
+
 /**
  * Rename / archive / restore / delete with optimistic updates. Each action updates the lists
- * immediately, calls the data layer, and restores the previous lists if the server refuses.
+ * immediately, calls the data layer, and if the server refuses, puts back only that player as
+ * it was. Other actions that finished meanwhile, and refreshes, are kept.
  */
 export function usePlayerAdmin({ enabled, players, setPlayers, toast, refresh }: Args) {
   const [archived, setArchived] = useState<PlayerScore[]>([])
@@ -48,13 +57,16 @@ export function usePlayerAdmin({ enabled, players, setPlayers, toast, refresh }:
 
   /** Runs `call` with `apply` shown immediately; undoes `apply` if the call fails. */
   const optimistic = async <T,>(id: string, apply: () => void, call: () => Promise<Result<T>>): Promise<Result<T>> => {
-    const before = { players, archived }
+    const activeIndex = players.findIndex((p) => p.id === id)
+    const archivedIndex = archived.findIndex((p) => p.id === id)
+    const wasActive = players[activeIndex]
+    const wasArchived = archived[archivedIndex]
     setPendingIds((s) => new Set(s).add(id))
     apply()
     const res = await call()
     if (!res.ok) {
-      setPlayers(before.players)
-      setArchived(before.archived)
+      setPlayers((list) => putBack(list, id, wasActive, activeIndex))
+      setArchived((list) => putBack(list, id, wasArchived, archivedIndex))
     }
     setPendingIds((s) => {
       const next = new Set(s)

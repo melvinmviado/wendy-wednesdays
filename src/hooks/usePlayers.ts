@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { initialPlayers } from '../data/leaderboardData'
 import { fetchPlayers, persistActivePlayers } from '../data/players'
+import { invalidateScores } from '../data/scores'
 import { supabase } from '../lib/supabase'
 import type { PlayerScore } from '../types/leaderboard'
 import { isPlayerRole } from '../types/roles'
 
 const CACHE_KEY = 'wendy_leaderboard_players'
+/** Realtime sends one event per changed row: saving a week is a burst. Reload once after it. */
+export const REALTIME_DEBOUNCE_MS = 500
 
 /**
  * The season roster: cached in localStorage, loaded from the season_leaderboard view (falling back
@@ -88,21 +91,29 @@ export function usePlayers(isConfigured: boolean) {
     if (isConfigured) {
       refresh()
 
-      // Subscribe to real-time changes on both weekly_scores and players
+      // Realtime: one event per changed row, so a saved week of N scores is N events. Reload
+      // once, REALTIME_DEBOUNCE_MS after the last one.
+      let timer: ReturnType<typeof setTimeout> | null = null
+      let scoresChanged = false
+      const schedule = (scores = false) => {
+        scoresChanged ||= scores
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(() => {
+          timer = null
+          if (scoresChanged) invalidateScores() // rank arrows and results re-read the scores
+          scoresChanged = false
+          void refresh()
+        }, REALTIME_DEBOUNCE_MS)
+      }
       const channel = supabase
         .channel('public:leaderboard_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_scores' }, () => {
-          refresh()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
-          refresh()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'player_roles' }, () => {
-          refresh()
-        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_scores' }, () => schedule(true))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => schedule())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'player_roles' }, () => schedule())
         .subscribe()
 
       return () => {
+        if (timer) clearTimeout(timer)
         supabase.removeChannel(channel)
       }
     }

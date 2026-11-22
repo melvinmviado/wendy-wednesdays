@@ -9,7 +9,7 @@ import {
   validateDisplayName,
 } from '../../utils/profileValidation'
 import { ModalShell, modalBtn, modalBtnQuiet } from '../admin/ModalShell'
-import { PhotoCropModal } from '../results/PhotoCropModal'
+import { LazyPhotoCropModal } from '../results/LazyPhotoCropModal'
 import { AuthField } from './AuthField'
 import { AvatarEditor } from './AvatarEditor'
 
@@ -58,7 +58,7 @@ export const ProfileDialog: React.FC<ProfileDialogProps> = ({ onClose, onSignOut
   // The draft name lives here, so nothing is lost when this dialog comes back.
   if (cropFile) {
     return (
-      <PhotoCropModal
+      <LazyPhotoCropModal
         file={cropFile}
         title="Crop your photo"
         saveLabel="Use photo"

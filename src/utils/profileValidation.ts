@@ -2,7 +2,8 @@ export const DISPLAY_NAME_MAX = 60
 export const AVATAR_ACCEPT = 'image/jpeg,image/png,image/webp'
 export const AVATAR_INPUT_MAX_BYTES = 5 * 1024 * 1024 // what a user may pick, before cropping
 export const AVATAR_UPLOAD_MAX_BYTES = 2 * 1024 * 1024 // the avatars bucket's own cap, checked after cropping
-export const AVATAR_OUTPUT_SIZE = 512
+// Largest avatar on screen is 80 px; 256 px covers 3x displays at a quarter of 512's bytes.
+export const AVATAR_OUTPUT_SIZE = 256
 
 const ALLOWED_TYPES = AVATAR_ACCEPT.split(',')
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { usePlayers } from './usePlayers'
+import { REALTIME_DEBOUNCE_MS, usePlayers } from './usePlayers'
+import { getScoresVersion } from '../data/scores'
 
 type ViewRow = { id: string; name: string; weeks_played: number; total_points: number }
 type ViewResult = { data: ViewRow[] | null; error: { message: string } | null }
@@ -10,10 +11,14 @@ const db = vi.hoisted(() => ({
   reads: [] as Array<(r: ViewResult) => void>,
   removed: 0,
   subscribed: 0,
+  handlers: {} as Record<string, () => void>,
 }))
 
 vi.mock('../lib/supabase', () => {
-  const channel = { on: () => channel, subscribe: () => { db.subscribed++; return channel } }
+  const channel = {
+    on: (_e: string, filter: { table: string }, handler: () => void) => { db.handlers[filter.table] = handler; return channel },
+    subscribe: () => { db.subscribed++; return channel },
+  }
   return {
     isSupabaseConfigured: true,
     supabase: {
@@ -32,6 +37,7 @@ beforeEach(() => {
   db.reads = []
   db.removed = 0
   db.subscribed = 0
+  db.handlers = {}
   localStorage.clear()
 })
 
@@ -81,5 +87,39 @@ describe('usePlayers (database configured)', () => {
     await waitFor(() => expect(db.subscribed).toBeGreaterThan(0))
     unmount()
     expect(db.removed).toBe(db.subscribed)
+  })
+
+  it('a burst of realtime events (one per saved row) causes one reload, after it ends', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      renderHook(() => usePlayers(true))
+      expect(db.subscribed).toBe(1)
+      const before = db.reads.length
+      const version = getScoresVersion()
+
+      for (let i = 0; i < 12; i++) db.handlers.weekly_scores()
+      db.handlers.players()
+      await act(async () => { vi.advanceTimersByTime(REALTIME_DEBOUNCE_MS - 1) })
+      expect(db.reads.length).toBe(before) // still inside the burst window
+
+      await act(async () => { vi.advanceTimersByTime(1) })
+      expect(db.reads.length).toBe(before + 1)
+      expect(getScoresVersion()).toBe(version + 1) // rank arrows and results re-read the scores once
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('player-only changes reload the roster without invalidating the scores', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      renderHook(() => usePlayers(true))
+      const version = getScoresVersion()
+      db.handlers.players()
+      await act(async () => { vi.advanceTimersByTime(REALTIME_DEBOUNCE_MS) })
+      expect(getScoresVersion()).toBe(version)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

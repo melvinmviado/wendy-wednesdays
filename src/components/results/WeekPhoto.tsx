@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { ImageOff, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { removeWeekPhoto, uploadWeekPhoto } from '../../data/weeklyResults'
-import { PhotoCropModal } from './PhotoCropModal'
+import { LazyPhotoCropModal } from './LazyPhotoCropModal'
 
 interface WeekPhotoProps {
   weekNumber: number
@@ -99,7 +99,7 @@ export const WeekPhoto: React.FC<WeekPhotoProps> = ({ weekNumber, photoUrl, isAd
         </div>
       )}
       {pendingFile && (
-        <PhotoCropModal file={pendingFile} onCancel={() => setPendingFile(null)} onConfirm={handleCropped} />
+        <LazyPhotoCropModal file={pendingFile} onCancel={() => setPendingFile(null)} onConfirm={handleCropped} />
       )}
       {error && (
         <p role="alert" className="text-sm text-brand-hover">

@@ -16,6 +16,7 @@ vi.mock('../../components/WeeklyEntryScreen', () => ({ WeeklyEntryScreen: () => 
 const auth = (over: Partial<AuthContextValue>): AuthContextValue =>
   ({ isAdmin: false, loading: false, isSignedIn: false, isConfigured: false, ...over }) as AuthContextValue
 
+// Admin pages are lazy-loaded route chunks (AppRoutes.tsx), so each test waits for its first element.
 const renderAt = (path: string, value: AuthContextValue) =>
   render(
     <AuthContext.Provider value={value}>
@@ -28,15 +29,16 @@ const renderAt = (path: string, value: AuthContextValue) =>
 describe('admin guard', () => {
   it.each(['/admin', '/admin/event', '/admin/players', '/admin/setup', '/admin/results', '/admin/events', '/admin/claims', '/admin/nope'])(
     'sends a non-admin from %s back to the leaderboard',
-    (path) => {
+    async (path) => {
       renderAt(path, auth({ isAdmin: false }))
-      expect(screen.getByText('Leaderboard home')).toBeInTheDocument()
+      expect(await screen.findByText('Leaderboard home')).toBeInTheDocument()
       expect(screen.queryByText('Admin only')).not.toBeInTheDocument()
     },
   )
 
-  it('waits for the role check instead of redirecting or showing admin content', () => {
+  it('waits for the role check instead of redirecting or showing admin content', async () => {
     renderAt('/admin/events', auth({ isAdmin: true, loading: true }))
+    expect(await screen.findByText(/Checking access/)).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Checking access')
     expect(screen.queryByText('Leaderboard home')).not.toBeInTheDocument()
     expect(screen.queryByText('Settings panel')).not.toBeInTheDocument()
@@ -46,9 +48,9 @@ describe('admin guard', () => {
 describe('admin pages', () => {
   const admin = auth({ isAdmin: true })
 
-  it('dashboard lists the three groups as links, with live badges and no back link', () => {
+  it('dashboard lists the three groups as links, with live badges and no back link', async () => {
     renderAt('/admin', admin)
-    expect(screen.getByRole('heading', { name: 'Admin dashboard' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Admin dashboard' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Weekly event/ })).toHaveAttribute('href', '/admin/event')
     expect(screen.getByRole('link', { name: /Players/ })).toHaveAttribute('href', '/admin/players')
     expect(screen.getByRole('link', { name: /Event setup/ })).toHaveAttribute('href', '/admin/setup')
@@ -61,16 +63,16 @@ describe('admin pages', () => {
     ['/admin/setup', 'Event setup', 'Settings panel'],
     ['/admin/results', 'Enter weekly results', 'Weekly entry'],
     ['/admin/events', 'Event dates & RSVP', 'Settings panel'],
-  ])('%s renders its task under the shared header with a back link', (path, title, body) => {
+  ])('%s renders its task under the shared header with a back link', async (path, title, body) => {
     renderAt(path, admin)
-    expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
-    expect(screen.getByText(body)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
+    expect(await screen.findByText(body)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Admin dashboard/ })).toHaveAttribute('href', '/admin')
   })
 
-  it('shows a not-found state for an unknown admin path', () => {
+  it('shows a not-found state for an unknown admin path', async () => {
     renderAt('/admin/nope', admin)
-    expect(screen.getByText(/no admin page at this address/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no admin page at this address/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to the admin dashboard' })).toHaveAttribute('href', '/admin')
   })
 })
