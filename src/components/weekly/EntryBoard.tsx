@@ -10,7 +10,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 // Single-screen weekly entry: courts on top (left on wide screens), roster/bench below (right),
 // and a sticky save bar within thumb reach.
 export const EntryBoard: React.FC<{ w: WeeklyEntry; rosterSize: number }> = ({ w, rosterSize }) => {
-  const { selectedWeek, attendedCount, courtCount, saving, loadingWeek, handleSaveWeek } = w
+  const { selectedWeek, attendedCount, courtCount, saving, loadingWeek, loadFailed, handleSaveWeek } = w
   const summary = `${plural(attendedCount, 'player')}, ${plural(courtCount, 'court')}`
 
   return (
@@ -30,7 +30,7 @@ export const EntryBoard: React.FC<{ w: WeeklyEntry; rosterSize: number }> = ({ w
               <strong className="text-ink">Week {selectedWeek}</strong>: {summary}
             </span>
           </p>
-          <button onClick={handleSaveWeek} disabled={saving || loadingWeek} className={`${btnPrimary} min-h-14 w-full sm:w-auto`}>
+          <button onClick={handleSaveWeek} disabled={saving || loadingWeek || loadFailed} className={`${btnPrimary} min-h-14 w-full sm:w-auto`}>
             {saving ? (
               <>
                 <RefreshCw className="h-5 w-5 animate-spin" />

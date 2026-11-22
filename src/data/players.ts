@@ -20,7 +20,9 @@ interface PlayerRow {
   player_roles?: { role_key: string } | { role_key: string }[] | null
 }
 
-const PLAYER_SELECT = '*, player_roles(role_key)'
+// Named columns (not *): players.user_id links a player to an auth account and the app never
+// needs it here, so it is not sent to every visitor.
+const PLAYER_SELECT = 'id, name, weeks_played, total_points, archived_at, updated_at, avatar_url, player_roles(role_key)'
 
 function embeddedRole(row: PlayerRow): PlayerRole | null {
   const r = Array.isArray(row.player_roles) ? row.player_roles[0] : row.player_roles

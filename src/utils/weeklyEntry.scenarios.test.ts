@@ -18,14 +18,14 @@ const attended = (courts: CourtData[], players: PlayerScore[], week = 1) =>
   buildSaveRecords(courts, players, week).filter((r) => r.attended)
 
 describe('weekly entry scenarios', () => {
-  it('12 players: 3 full courts with default points 10/9, 8/7, 6/5 and no warnings', () => {
+  it('12 players: 3 full courts with default points 6/5, 4/3, 2/1 and no warnings', () => {
     const r = roster(12)
     const courts = seatRoster(r)
     expect(courts).toHaveLength(3)
     expect(getCourtWarnings(courts)).toEqual([])
     const recs = attended(courts, r)
     expect(recs).toHaveLength(12)
-    expect(recs.map((x) => x.points)).toEqual([10, 10, 9, 9, 8, 8, 7, 7, 6, 6, 5, 5])
+    expect(recs.map((x) => x.points)).toEqual([6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1])
     expect(recs.map((x) => x.finish_order)).toEqual([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2])
   })
 
@@ -63,8 +63,8 @@ describe('weekly entry scenarios', () => {
   it('swapping across courts exchanges players while points stay with the slots', () => {
     const courts = seatRoster(roster(8))
     const after = moveOrSwapPlayers(courts, 'c1-t1-p1', 'c2-t2-p2')
-    expect(after[0].slots[0]).toMatchObject({ playerId: '8', points: 10 })
-    expect(after[1].slots[3]).toMatchObject({ playerId: '1', points: 7 })
+    expect(after[0].slots[0]).toMatchObject({ playerId: '8', points: 4 })
+    expect(after[1].slots[3]).toMatchObject({ playerId: '1', points: 1 })
     expect(getSeatedPlayerIds(after).size).toBe(8)
   })
 
@@ -161,5 +161,48 @@ describe('parity with the previous save logic', () => {
     expect(old.filter((x) => x.attended)).toHaveLength(6)
     expect(now.filter((x) => x.attended)).toHaveLength(4)
     expect(sorted(now).filter((x) => x.attended)).toEqual(sorted(old).filter((x) => x.attended && x.court_number !== null))
+  })
+
+  describe('default points follow the published rules (bottom loser 1, +1 per place up)', () => {
+    // src/content/rules.ts: "with 6 courts the winner of Court 6 receives 2 points, the loser of
+    // Court 5 receives 3 points, and so on up the courts."
+    for (let n = 1; n <= 8; n++) {
+      it(`${n} court${n === 1 ? '' : 's'}: Court ${n} runners-up 1 ... Court 1 winners ${2 * n}`, () => {
+        const courts = seatRoster(roster(4 * n))
+        expect(courts).toHaveLength(n)
+        const teamPoints = courts.flatMap((c) => [c.firstPlacePoints, c.secondPlacePoints])
+        expect(teamPoints).toEqual(Array.from({ length: 2 * n }, (_, i) => 2 * n - i))
+        for (const c of courts) for (const s of c.slots) {
+          expect(s.points).toBe(s.teamPlace === 1 ? c.firstPlacePoints : c.secondPlacePoints)
+        }
+      })
+    }
+
+    it('matches the 6-court example on the Rules page', () => {
+      const courts = seatRoster(roster(24))
+      expect(courts[5]).toMatchObject({ firstPlacePoints: 2, secondPlacePoints: 1 })
+      expect(courts[4].secondPlacePoints).toBe(3)
+      expect(courts[0].firstPlacePoints).toBe(12)
+    })
+
+    it('adding a court moves default courts up but keeps edited points', () => {
+      const edited = seatRoster(roster(8)).map((c) =>
+        c.courtNumber === 2 ? { ...c, firstPlacePoints: 20, slots: c.slots.map((s) => (s.teamPlace === 1 ? { ...s, points: 20 } : s)) } : c
+      )
+      const after = seatRoster(roster(9).slice(8), edited)
+      expect(after).toHaveLength(3)
+      expect(after[0]).toMatchObject({ firstPlacePoints: 6, secondPlacePoints: 5 }) // was 4/3
+      expect(after[1]).toMatchObject({ firstPlacePoints: 20, secondPlacePoints: 1 }) // edited: kept
+      expect(after[2]).toMatchObject({ firstPlacePoints: 2, secondPlacePoints: 1 })
+    })
+
+    it('removing the last court moves the remaining default courts back down', () => {
+      const courts = seatRoster(roster(5))
+      expect(courts[0]).toMatchObject({ firstPlacePoints: 4, secondPlacePoints: 3 })
+      const after = unseatPlayer(courts, '5')
+      expect(after).toHaveLength(1)
+      expect(after[0]).toMatchObject({ firstPlacePoints: 2, secondPlacePoints: 1 })
+      expect(after[0].slots.map((s) => s.points)).toEqual([2, 2, 1, 1])
+    })
   })
 })

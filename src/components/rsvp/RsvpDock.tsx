@@ -74,11 +74,13 @@ export const RsvpDock: React.FC<RsvpDockProps> = ({ players, toast, api }) => {
   const openAt = r.sessionDate && r.phase === 'upcoming' ? getScheduleTimestamps(r.sessionDate, settings).openAt : null
   const opensAt = openAt && r.sessionDate ? formatEventDateTime(openAt.toISOString(), getSessionTimeZone(r.sessionDate, settings)) : null
   const view = getDockView({ ...r, failed: r.error !== null, capacity: r.capacity, closesIn, opensAt })
-  if (r.unavailable) return null // the RSVP migration is not applied: stay out of the way
 
+  // Hooks must stay above the early return below: `unavailable` can flip after the first render.
   const refreshRef = useRef(r.refresh)
   refreshRef.current = r.refresh
   const refresh = useCallback(() => void refreshRef.current(), [])
+
+  if (r.unavailable) return null // the RSVP migration is not applied: stay out of the way
 
   const canRsvp = view.kind === 'open' || view.kind === 'full'
   const fail = (message: string) => toast.push('error', message)

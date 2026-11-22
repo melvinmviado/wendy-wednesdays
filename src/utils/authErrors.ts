@@ -1,9 +1,10 @@
 import { AppAuthError, type AuthErrorCode } from '../types/auth'
+import { MIN_PASSWORD_LENGTH } from './authValidation'
 
 const MESSAGES: Record<AuthErrorCode, string> = {
   'invalid-credentials': 'Incorrect email or password.',
   'user-exists': 'An account with this email already exists. Try signing in instead.',
-  'weak-password': 'That password is too weak. Use at least 6 characters.',
+  'weak-password': `That password is too weak. Use at least ${MIN_PASSWORD_LENGTH} characters.`,
   'invalid-email': 'Please enter a valid email address.',
   'email-not-confirmed': 'Please confirm your email address first. Check your inbox for the link.',
   'rate-limited': 'Too many attempts. Please wait a minute and try again.',

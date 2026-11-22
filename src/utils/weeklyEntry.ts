@@ -1,17 +1,46 @@
 import type { CourtData, PlayerScore } from '../types/leaderboard'
 import { getTeamOverallRank } from './scoring'
 
-// Default points: 10 for the overall 1st place team, then 1 fewer for each following team
-// (Court 1 winners 10, Court 1 runners-up 9, Court 2 winners 8, ...), floored at 0.
-// Both players on a team share the team's points.
-const getCourtDefaultPoints = (courtNum: number) => ({
-  first: Math.max(0, 11 - getTeamOverallRank(courtNum, 1)),
-  second: Math.max(0, 11 - getTeamOverallRank(courtNum, 2)),
+/**
+ * Default points, as published on the Rules page (src/content/rules.ts): the 2nd place team on the
+ * bottom court gets 1 point and every place above gets 1 more. With 6 courts: Court 6 runners-up 1,
+ * Court 6 winners 2, Court 5 runners-up 3, ... Court 1 winners 12. Both partners share the points.
+ * The defaults depend on how many courts are in play, so they are rebalanced when that changes.
+ */
+export const getDefaultTeamPoints = (courtNum: number, teamPlace: 1 | 2, courtCount: number): number =>
+  Math.max(1, 2 * courtCount - getTeamOverallRank(courtNum, teamPlace) + 1)
+
+const getCourtDefaultPoints = (courtNum: number, courtCount: number) => ({
+  first: getDefaultTeamPoints(courtNum, 1, courtCount),
+  second: getDefaultTeamPoints(courtNum, 2, courtCount),
 })
 
-/** A blank court: 2 slots for the 1st place team, 2 for the 2nd place team. */
-export function buildEmptyCourt(courtNum: number): CourtData {
-  const { first, second } = getCourtDefaultPoints(courtNum)
+const withTeamPoints = (c: CourtData, first: number, second: number): CourtData => ({
+  ...c,
+  firstPlacePoints: first,
+  secondPlacePoints: second,
+  slots: c.slots.map((s) => ({ ...s, points: s.teamPlace === 1 ? first : second })),
+})
+
+/**
+ * After the number of courts changes from `previousCount`, move every court that is still on its
+ * default points to the defaults for the new count. Courts whose points were edited keep them.
+ */
+export function rebalanceDefaultPoints(courts: CourtData[], previousCount: number): CourtData[] {
+  if (courts.length === previousCount) return courts
+  return courts.map((c) => {
+    if (hasCustomPoints(c, previousCount)) return c
+    const { first, second } = getCourtDefaultPoints(c.courtNumber, courts.length)
+    return withTeamPoints(c, first, second)
+  })
+}
+
+/**
+ * A blank court: 2 slots for the 1st place team, 2 for the 2nd place team. `courtCount` is how many
+ * courts are in play including this one (it sets the default points).
+ */
+export function buildEmptyCourt(courtNum: number, courtCount: number = courtNum): CourtData {
+  const { first, second } = getCourtDefaultPoints(courtNum, courtCount)
   const slot = (teamPlace: 1 | 2, playerIndex: 1 | 2, points: number) => ({
     slotId: `c${courtNum}-t${teamPlace}-p${playerIndex}`,
     teamPlace,
@@ -69,8 +98,8 @@ export function seatPlayer(
   }
 
   if (!slotId) {
-    const fresh = buildEmptyCourt(courts.length + 1)
-    next = [...courts, fresh]
+    const fresh = buildEmptyCourt(courts.length + 1, courts.length + 1)
+    next = rebalanceDefaultPoints([...courts, fresh], courts.length)
     slotId = fresh.slots[0].slotId
   }
 
@@ -82,9 +111,9 @@ export function seatPlayer(
   }))
 }
 
-/** True when a court's team points were changed from the defaults. */
-const hasCustomPoints = (c: CourtData): boolean => {
-  const { first, second } = getCourtDefaultPoints(c.courtNumber)
+/** True when a court's team points differ from the defaults for `courtCount` courts. */
+const hasCustomPoints = (c: CourtData, courtCount: number): boolean => {
+  const { first, second } = getCourtDefaultPoints(c.courtNumber, courtCount)
   return c.firstPlacePoints !== first || c.secondPlacePoints !== second
 }
 
@@ -109,11 +138,11 @@ export function unseatPlayer(
 /** Drop trailing fully-empty courts (keeping court 1), except ones with edited points. */
 function trimTrailingCourts(courts: CourtData[], discardCustomPoints = false): CourtData[] {
   const isTrimmable = (c: CourtData) =>
-    c.slots.every((s) => !s.playerId) && (discardCustomPoints || !hasCustomPoints(c))
+    c.slots.every((s) => !s.playerId) && (discardCustomPoints || !hasCustomPoints(c, courts.length))
 
   let end = courts.length
   while (end > 1 && isTrimmable(courts[end - 1])) end--
-  return end === courts.length ? courts : courts.slice(0, end)
+  return end === courts.length ? courts : rebalanceDefaultPoints(courts.slice(0, end), courts.length)
 }
 
 /**
@@ -171,7 +200,7 @@ export function buildCourtsFromRecords(
   }
 
   const maxCourt = Math.max(0, ...[...teams.values()].map((t) => t[0].courtNumber as number))
-  let courts = Array.from({ length: maxCourt }, (_, i) => buildEmptyCourt(i + 1))
+  let courts = Array.from({ length: maxCourt }, (_, i) => buildEmptyCourt(i + 1, maxCourt))
 
   for (const [key, team] of teams) {
     const [courtNum, place] = key.split('-').map(Number)

@@ -172,7 +172,11 @@ describe('player roles', () => {
     }
     const res = await fetchPlayers()
     expect(res.ok && res.data.map((p) => p.role)).toEqual(['developer', 'organizer', null, null])
-    expect(state.calls).toContain('select("*, player_roles(role_key)")')
+    const select = state.calls.find((c) => c.startsWith('select('))
+    expect(select).toContain('player_roles(role_key)')
+    // named columns only: players.user_id (an auth account id) is never sent to the browser
+    expect(select).not.toContain('*')
+    expect(select).not.toContain('user_id')
   })
 
   it('calls the RPC with the player and role', async () => {

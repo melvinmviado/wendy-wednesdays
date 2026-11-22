@@ -12,7 +12,7 @@ import {
   type SavedPlacement,
 } from '../utils/weeklyEntry'
 import type { SaveResult } from '../components/SaveResultModal'
-import { persistActivePlayers } from '../data/players'
+import { createPlayer, persistActivePlayers } from '../data/players'
 
 interface UseWeeklyEntryArgs {
   roster: PlayerScore[]
@@ -21,6 +21,10 @@ interface UseWeeklyEntryArgs {
 }
 
 const UNKNOWN_PLAYER = 'Archived player'
+
+/** Who sits where and for how many points: what Save would write. Names don't count. */
+const placementKey = (courts: CourtData[]): string =>
+  JSON.stringify(courts.map((c) => c.slots.map((s) => [s.playerId, s.points])))
 
 export const useWeeklyEntry = ({
   roster,
@@ -48,6 +52,11 @@ export const useWeeklyEntry = ({
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null)
   // How many legacy attended-but-unseated players were auto-placed on load (0 = no notice)
   const [legacyPlacedCount, setLegacyPlacedCount] = useState(0)
+  // The active week could not be loaded: nothing on screen reflects it, so saving is blocked
+  // until a retry succeeds (otherwise the previous week's seating could overwrite this one).
+  const [loadFailed, setLoadFailed] = useState(false)
+  // placementKey of the courts as last loaded or saved, to warn before discarding edits
+  const [savedKey, setSavedKey] = useState(() => placementKey([]))
 
   // Roster is read through a ref so a roster change (e.g. quick add) never reloads the week
   // and wipes unsaved seating.
@@ -56,6 +65,10 @@ export const useWeeklyEntry = ({
   // players who were removed from a court (even if no longer on the roster) as not attended.
   const savedAttendeeIdsRef = useRef<Set<string>>(new Set())
   const loadSeqRef = useRef(0)
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+  }, [])
 
   // Load existing week entries from Supabase or localStorage
   const loadWeekData = useCallback(async (week: number) => {
@@ -64,6 +77,7 @@ export const useWeeklyEntry = ({
     setErrorMsg(null)
     setSaveSuccessMsg(null)
     setLegacyPlacedCount(0)
+    setLoadFailed(false)
 
     try {
       let attendedRows: SavedPlacement[] = []
@@ -105,13 +119,21 @@ export const useWeeklyEntry = ({
 
       savedAttendeeIdsRef.current = new Set(attendedRows.map((r) => r.playerId))
       setCourts(loaded)
+      setSavedKey(placementKey(loaded))
       setSelectedSlotId(null)
       setPickedSlotId(null)
       setLegacyPlacedCount(unseatedCount)
     } catch (err: unknown) {
       if (seq !== loadSeqRef.current) return
       const msg = err instanceof Error ? err.message : 'Error loading week data'
-      setErrorMsg(msg)
+      setErrorMsg(`Couldn't load Week ${week}: ${msg}`)
+      // Drop the previous week's seating so it can't be saved under this week's number
+      savedAttendeeIdsRef.current = new Set()
+      setCourts([])
+      setSavedKey(placementKey([]))
+      setSelectedSlotId(null)
+      setPickedSlotId(null)
+      setLoadFailed(true)
     } finally {
       if (seq === loadSeqRef.current) setLoadingWeek(false)
     }
@@ -163,39 +185,36 @@ export const useWeeklyEntry = ({
     setErrorMsg(null)
     setSaveSuccessMsg(null)
 
-    try {
-      let createdId = Date.now().toString()
-
-      if (isSupabaseConfigured) {
-        const { data, error } = await supabase
-          .from('players')
-          .insert([{ name, weeks_played: 1, total_points: 0 }])
-          .select()
-          .single()
-
-        if (error) throw error
-        if (data) createdId = data.id
-      }
-
-      const newPlayer: PlayerScore = {
-        id: createdId,
-        name,
-        weeksPlayed: 1,
-        totalPoints: 0,
-      }
-
-      onAddNewPlayerToRoster(newPlayer)
-
-      // Automatically seat the newly created player!
-      setCourts((prev) => seatPlayer(prev, newPlayer))
-      setNewPlayerName('')
-      setSaveSuccessMsg(`Added "${name}" and checked into Week ${selectedWeek}!`)
-      setTimeout(() => setSaveSuccessMsg(null), 3000)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to add player'
-      setErrorMsg(msg)
+    // Same path as the Players page: duplicate-name checks and friendly errors in both modes.
+    // Totals come from the saved scores, so the new player starts at 0 weeks / 0 points.
+    const result = await createPlayer(name)
+    if (!result.ok) {
+      setErrorMsg(result.error.message)
+      return
     }
+    const newPlayer = result.data
+    onAddNewPlayerToRoster(newPlayer)
+
+    // Automatically seat the newly created player
+    setCourts((prev) => seatPlayer(prev, newPlayer))
+    setNewPlayerName('')
+    setSaveSuccessMsg(`Added "${name}" and checked into Week ${selectedWeek}!`)
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    successTimerRef.current = setTimeout(() => setSaveSuccessMsg(null), 3000)
   }
+
+  const isDirty = placementKey(courts) !== savedKey
+
+  // Switch weeks. Not while a save is running (it would finish against the new week's state),
+  // and unsaved seating is only thrown away after the admin confirms.
+  const selectWeek = (week: number) => {
+    if (week === selectedWeek || saving) return
+    if (isDirty && !window.confirm(`Week ${selectedWeek} has unsaved changes. Discard them and open Week ${week}?`)) return
+    setSaveResult(null)
+    setSelectedWeek(week)
+  }
+
+  const retryLoad = () => loadWeekData(selectedWeek)
 
   // Court placement is the single source of truth for attendance (derived, never duplicated)
   const attendedPlayerIds = useMemo(() => getSeatedPlayerIds(courts), [courts])
@@ -295,6 +314,7 @@ export const useWeeklyEntry = ({
 
   // Save Week & Bulk Upsert to Database
   const handleSaveWeek = async () => {
+    if (loadFailed || loadingWeek || saving) return // nothing trustworthy to save yet
     // Incomplete courts are allowed, but the admin must confirm
     if (
       attendedPlayerIds.size === 0 &&
@@ -309,6 +329,9 @@ export const useWeeklyEntry = ({
     setErrorMsg(null)
     setSaveSuccessMsg(null)
     setSaveResult(null)
+    // A week switch during the save starts a new load; the result below must not leak into it.
+    const loadSeq = loadSeqRef.current
+    const savedCourtsKey = placementKey(courts)
 
     try {
       // attended = true exactly for seated players; everyone else (including players removed from
@@ -370,7 +393,10 @@ export const useWeeklyEntry = ({
         onLeaderboardUpdated()
       }
 
-      savedAttendeeIdsRef.current = new Set(attendedPlayerIds)
+      if (loadSeq === loadSeqRef.current) {
+        savedAttendeeIdsRef.current = new Set(attendedPlayerIds)
+        setSavedKey(savedCourtsKey)
+      }
       setLegacyPlacedCount(0)
       setSaveResult({
         status: 'success',
@@ -405,7 +431,7 @@ export const useWeeklyEntry = ({
 
   return {
     selectedWeek,
-    setSelectedWeek,
+    selectWeek,
     saveResult,
     setSaveResult,
     attendedPlayerIds,
@@ -423,6 +449,9 @@ export const useWeeklyEntry = ({
     setSelectedSlotId,
     saving,
     loadingWeek,
+    loadFailed,
+    retryLoad,
+    isDirty,
     saveSuccessMsg,
     errorMsg,
     legacyPlacedCount,

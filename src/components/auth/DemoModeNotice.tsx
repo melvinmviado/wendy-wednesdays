@@ -35,16 +35,17 @@ export const DemoModeNotice: React.FC = () => {
           Running in demo mode. Email and password (6+ characters) signs you in as a demo admin. Creating an account
           and Google sign you in as a regular demo user. The email link only shows its confirmation screen.
         </p>
-        <button
+        {import.meta.env.DEV && <button
           type="button"
           onClick={() => setShowConfig(!showConfig)}
           className="text-brand-hover underline underline-offset-2 hover:text-ink font-medium cursor-pointer"
         >
           {showConfig ? 'Hide Supabase configuration' : 'Configure Supabase keys now'}
-        </button>
+        </button>}
       </div>
 
-      {showConfig && (
+      {/* Dev only: lib/supabase.ts ignores saved keys in production builds */}
+      {import.meta.env.DEV && showConfig && (
         <form onSubmit={save} className="space-y-3">
           <h4 className="flex items-center gap-2 text-sm font-semibold text-ink">
             <KeyRound className="w-4 h-4 text-brand-hover" aria-hidden="true" />

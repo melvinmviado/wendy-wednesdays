@@ -1,4 +1,5 @@
-export const MIN_PASSWORD_LENGTH = 6
+// Keep in step with Supabase: Authentication > Providers > Email > Minimum password length.
+export const MIN_PASSWORD_LENGTH = 8
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

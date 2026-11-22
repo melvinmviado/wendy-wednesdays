@@ -137,8 +137,10 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           })
           if (error) return { error: toAuthError(error), needsEmailConfirmation: false }
           // With confirmation ON, an existing address comes back as a fake user with no identities.
+          // Supabase hides whether the address is taken on purpose; answer exactly as for a new
+          // account ("check your email") so this form can't be used to test which emails exist.
           if (data.user && data.user.identities?.length === 0) {
-            return { error: toAuthError({ code: 'user_already_exists' }), needsEmailConfirmation: false }
+            return { error: null, needsEmailConfirmation: true }
           }
           // Confirmation OFF returns a session at once (onAuthStateChange picks it up); ON does not.
           return { error: null, needsEmailConfirmation: !data.session }

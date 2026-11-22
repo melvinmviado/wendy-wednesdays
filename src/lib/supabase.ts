@@ -3,9 +3,13 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-// Also check localStorage for quick testing without rebuilding
-const storedUrl = typeof window !== 'undefined' ? localStorage.getItem('supabase_url') || '' : ''
-const storedKey = typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : ''
+// Dev only: credentials saved from the demo-mode "Connect Supabase" form, for trying a project
+// without rebuilding. Production builds ignore them, so nobody can point a deployed app at
+// another backend from the browser (vite.config.ts also refuses a production build without
+// the env vars, and the CSP in public/_headers only allows this project's host).
+const canUseStored = import.meta.env.DEV && typeof window !== 'undefined'
+const storedUrl = canUseStored ? localStorage.getItem('supabase_url') || '' : ''
+const storedKey = canUseStored ? localStorage.getItem('supabase_anon_key') || '' : ''
 
 export const supabaseUrl = envUrl || storedUrl || ''
 export const supabaseAnonKey = envKey || storedKey || ''

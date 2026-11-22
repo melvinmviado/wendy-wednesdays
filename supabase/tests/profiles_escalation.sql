@@ -2,6 +2,7 @@
 -- applying, in order:
 --   1. supabase/migrations/20261118000000_profiles_foundation.sql
 --   2. supabase/migrations/20261119000000_player_admin.sql
+--   3. supabase/migrations/20261203000000_security_hardening.sql (closes public_profiles)
 -- Everything runs in one transaction that is ROLLED BACK at the end: no fixtures survive.
 -- Each check raises an exception on failure; "PASS ..." notices show in the Messages tab.
 -- Impersonation = set local role + request.jwt.claims, the same way PostgREST does it.
@@ -186,16 +187,13 @@ begin
     raise notice 'PASS anon cannot read the profiles table (role stays private)';
   end;
 
-  select count(*) into n from public.public_profiles
-   where id in (select alice from t_ids union select bob from t_ids);
-  if n <> 2 then raise exception 'FAIL anon sees % of 2 profiles through public_profiles', n; end if;
-  raise notice 'PASS anon can read public_profiles';
-
+  -- 20261203000000_security_hardening.sql closed public_profiles to API callers: it listed every
+  -- account (id + email-prefix display name) to anyone. Before that migration it was readable.
   begin
-    perform role from public.public_profiles limit 1;
-    raise exception 'FAIL public_profiles exposes role';
-  exception when undefined_column then
-    raise notice 'PASS public_profiles does not expose role';
+    perform 1 from public.public_profiles limit 1;
+    raise exception 'FAIL anon can read public_profiles';
+  exception when insufficient_privilege then
+    raise notice 'PASS anon cannot read public_profiles';
   end;
 
   begin

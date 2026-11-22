@@ -26,7 +26,10 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
   const [helpOpen, setHelpOpen] = useState(false)
   const {
     selectedWeek,
-    setSelectedWeek,
+    selectWeek,
+    saving,
+    loadFailed,
+    retryLoad,
     saveResult,
     setSaveResult,
     saveSuccessMsg,
@@ -64,11 +67,9 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
               <button
                 key={week}
                 aria-pressed={isSelected}
-                onClick={() => {
-                  setSelectedWeek(week)
-                  setSaveResult(null)
-                }}
-                className={`rounded-lg border px-2 py-3 text-base font-bold transition-colors cursor-pointer ${
+                disabled={saving}
+                onClick={() => selectWeek(week)}
+                className={`rounded-lg border px-2 py-3 text-base font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
                   isSelected
                     ? 'border-brand bg-brand text-brand-ink'
                     : 'border-line bg-surface text-ink-soft hover:bg-raised hover:text-ink'
@@ -111,7 +112,12 @@ export const WeeklyEntryScreen: React.FC<WeeklyEntryScreenProps> = ({
       {errorMsg && (
         <div role="alert" className="flex items-center gap-2 rounded-lg border border-brand bg-brand-soft p-3.5 text-base text-ink">
           <AlertCircle className="h-5 w-5 shrink-0 text-brand-hover" />
-          <span>{errorMsg}</span>
+          <span className="flex-1">{errorMsg}</span>
+          {loadFailed && (
+            <button onClick={() => void retryLoad()} className="shrink-0 font-bold text-ink underline hover:text-brand-hover cursor-pointer">
+              Retry
+            </button>
+          )}
         </div>
       )}
 

@@ -1,4 +1,8 @@
+# %SUPABASE_ORIGIN% / %SUPABASE_WS_ORIGIN% are filled in at build time from VITE_SUPABASE_URL
+# (vite.config.ts). style-src needs 'unsafe-inline' because react-easy-crop injects a <style> tag.
 /*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: %SUPABASE_ORIGIN%; connect-src 'self' %SUPABASE_ORIGIN% %SUPABASE_WS_ORIGIN%; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

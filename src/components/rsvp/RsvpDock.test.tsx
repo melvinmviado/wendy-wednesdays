@@ -7,6 +7,7 @@ import { resetDeviceMemory } from '../../data/rsvpDevice'
 import { useToasts } from '../../hooks/useToasts'
 import { DemoAuthProvider } from '../../context/DemoAuthProvider'
 import type { PlayerScore } from '../../types/leaderboard'
+import { RsvpError } from '../../types/rsvp'
 import { RsvpDock, UNDO_MS } from './RsvpDock'
 
 const players: PlayerScore[] = Array.from({ length: 30 }, (_, i) => ({ id: `p${i + 1}`, name: `Player ${i + 1}`, weeksPlayed: 0, totalPoints: 0 }))
@@ -154,5 +155,28 @@ describe('RsvpDock', () => {
     expect(container.querySelector('[aria-hidden="true"].h-\\[calc\\(var\\(--spacing-dock\\)\\+env\\(safe-area-inset-bottom\\)\\)\\]')).not.toBeNull()
     expect(dock().className).toContain('pb-[env(safe-area-inset-bottom)]')
     expect(dock().className).toContain('z-40')
+  })
+  it('renders nothing (and does not crash) when RSVPs turn out to be unavailable after mounting', async () => {
+    // The first render has no error yet; the first fetch then reports the migration is missing.
+    // Hooks after an early return would throw "Rendered fewer hooks than expected" here.
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    function Unavailable() {
+      const toast = useToasts()
+      const [api] = useState(() => {
+        const base = createDemoRsvpApi({ now: () => new Date('2026-11-25T15:00:00Z'), players: () => players })
+        return { ...base, getState: () => Promise.reject(new RsvpError('UNAVAILABLE')) }
+      })
+      return (
+        <DemoAuthProvider>
+          <RsvpDock players={players} toast={toast} api={api} />
+        </DemoAuthProvider>
+      )
+    }
+    render(<Unavailable />)
+    expect(dock()).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(screen.queryByRole('region', { name: 'Weekly RSVP' })).not.toBeInTheDocument()
+    expect(errors).not.toHaveBeenCalled()
+    errors.mockRestore()
   })
 })

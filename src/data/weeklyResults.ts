@@ -2,6 +2,8 @@ import { supabase } from '../lib/supabase'
 import type { ResultTeam, WeekMeta, WeeklyResult } from '../types/leaderboard'
 
 const PHOTO_BUCKET = 'week-photos'
+const PHOTO_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024
 
 interface ScoreRow {
   player_id: string
@@ -101,9 +103,11 @@ async function listWeekPhotoPaths(weekNumber: number): Promise<string[]> {
 
 /** Upload (or replace) the single podium photo for a week and store its public URL. */
 export async function uploadWeekPhoto(weekNumber: number, file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file')
-
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  // Same list as the bucket (20261203000000_security_hardening.sql). The extension comes from the
+  // type, never from the user's file name.
+  const ext = PHOTO_TYPES[file.type]
+  if (!ext) throw new Error('Please choose a JPEG, PNG or WebP image')
+  if (file.size > PHOTO_MAX_BYTES) throw new Error('That photo is larger than 5 MB')
   const path = `week-${weekNumber}/${Date.now()}.${ext}` // unique name avoids stale caches
 
   const { error: uploadError } = await supabase.storage

@@ -1,34 +1,50 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { initialPlayers } from '../data/leaderboardData'
 import { fetchPlayers, persistActivePlayers } from '../data/players'
 import { supabase } from '../lib/supabase'
 import type { PlayerScore } from '../types/leaderboard'
 import { isPlayerRole } from '../types/roles'
 
+const CACHE_KEY = 'wendy_leaderboard_players'
+
 /**
  * The season roster: cached in localStorage, loaded from the season_leaderboard view (falling back
  * to the players table), and kept fresh by a realtime subscription. Shared by the leaderboard and
  * the admin weekly-results page.
+ *
+ * With a database, the seed roster is never shown: the first paint uses the cache (or nothing),
+ * and the database's answer, even an empty one, replaces it. `loaded` turns true after the first
+ * successful load. Overlapping refreshes are numbered, and only the newest one may write state.
  */
 export function usePlayers(isConfigured: boolean) {
   const [players, setPlayers] = useState<PlayerScore[]>(() => {
-    const saved = localStorage.getItem('wendy_leaderboard_players')
+    const saved = localStorage.getItem(CACHE_KEY)
     if (saved) {
       try {
         return (JSON.parse(saved) as PlayerScore[]).filter((p) => !p.archivedAt)
       } catch {
-        // fallback
+        // fall through to the default below
       }
     }
-    return initialPlayers
+    return isConfigured ? [] : initialPlayers
   })
-  const [loadingDb, setLoadingDb] = useState(false)
+  const [loadingDb, setLoadingDb] = useState(isConfigured)
+  const [loaded, setLoaded] = useState(!isConfigured)
   const [dbError, setDbError] = useState<string | null>(null)
+  const seqRef = useRef(0)
 
   // Fetch players from database (prioritizing the computed season_leaderboard view)
   const refresh = useCallback(async () => {
     if (!isConfigured) return
 
+    const seq = ++seqRef.current
+    const current = () => seq === seqRef.current
+    const apply = (list: PlayerScore[]) => {
+      if (!current()) return
+      setPlayers(list)
+      setLoaded(true)
+      localStorage.setItem(CACHE_KEY, JSON.stringify(list))
+    }
     setLoadingDb(true)
     setDbError(null)
 
@@ -39,7 +55,7 @@ export function usePlayers(isConfigured: boolean) {
         .select('*')
         .order('total_points', { ascending: false })
 
-      if (!viewError && viewData && viewData.length > 0) {
+      if (!viewError && viewData) {
         const mapped: PlayerScore[] = viewData.map((item) => ({
           id: item.id,
           name: item.name,
@@ -49,8 +65,7 @@ export function usePlayers(isConfigured: boolean) {
           role: isPlayerRole(item.role_key) ? item.role_key : null, // absent until the role view migration
           isClaimed: item.is_claimed === true, // absent until the claimed view migration
         }))
-        setPlayers(mapped)
-        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(mapped))
+        apply(mapped)
         return
       }
 
@@ -58,15 +73,13 @@ export function usePlayers(isConfigured: boolean) {
       const result = await fetchPlayers()
       if (!result.ok) throw new Error(result.error.message)
 
-      if (result.data.length > 0) {
-        setPlayers(result.data)
-        localStorage.setItem('wendy_leaderboard_players', JSON.stringify(result.data))
-      }
+      apply(result.data)
     } catch (err: unknown) {
+      if (!current()) return
       const msg = err instanceof Error ? err.message : 'Failed to fetch from database'
       setDbError(msg)
     } finally {
-      setLoadingDb(false)
+      if (current()) setLoadingDb(false)
     }
   }, [isConfigured])
 
@@ -95,11 +108,13 @@ export function usePlayers(isConfigured: boolean) {
     }
   }, [isConfigured, refresh])
 
-  const addPlayer = (newPlayer: PlayerScore) => {
-    const updated = [newPlayer, ...players]
-    setPlayers(updated)
-    persistActivePlayers(updated)
-  }
+  const addPlayer = useCallback((newPlayer: PlayerScore) => {
+    setPlayers((prev) => {
+      const updated = [newPlayer, ...prev]
+      persistActivePlayers(updated)
+      return updated
+    })
+  }, [])
 
-  return { players, setPlayers, loadingDb, dbError, refresh, addPlayer }
+  return { players, setPlayers, loadingDb, loaded, dbError, refresh, addPlayer }
 }
