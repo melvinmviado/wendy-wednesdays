@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import {
   Trophy,
   Search,
@@ -112,6 +112,9 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <Link to="/rules" className={btnQuiet}>
+              Rules
+            </Link>
             {isSignedIn ? (
               <UserMenu
                 onProfile={() => setIsProfileOpen(true)}

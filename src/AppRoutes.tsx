@@ -9,6 +9,7 @@ import { AdminSetupPage } from './pages/admin/AdminSetupPage'
 import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminNotFound } from './pages/admin/AdminNotFound'
 import { AdminResultsPage } from './pages/admin/AdminResultsPage'
+import { RulesPage } from './pages/RulesPage'
 
 /** Every URL. The existing single-page app owns "/" and anything unknown; /admin/* is guarded by AdminLayout. */
 export function AppRoutes() {
@@ -24,6 +25,7 @@ export function AppRoutes() {
         <Route path="claims" element={<AdminClaimsPage />} />
         <Route path="*" element={<AdminNotFound />} />
       </Route>
+      <Route path="/rules" element={<RulesPage />} />
       <Route path="*" element={<App />} />
     </Routes>
   )
