@@ -128,12 +128,18 @@ select set_config('request.jwt.claims', json_build_object('sub', (select id from
 
 do $$
 begin
+  -- Since 20261204000000_rsvp_abuse_limits.sql several people may ask for the same player (one
+  -- sign-up per player used to block every real owner). The insert is undone by the block's
+  -- own exception, so bob is still free to make the request the admin tests below rely on.
   begin
     insert into public.player_claim_requests (player_id, user_id)
     values ((select id from t_p where name = 'p1'), (select id from t_u where name = 'bob'));
-    raise exception 'FAIL second pending request for the same player';
-  exception when unique_violation then
-    raise notice 'PASS one pending request per player';
+    raise exception 'undo' using errcode = 'TT001';
+  exception
+    when unique_violation then
+      raise exception 'FAIL a second person cannot ask for a player who already has a pending request';
+    when sqlstate 'TT001' then
+      raise notice 'PASS a second person may ask for a player who already has a pending request';
   end;
 
   begin
@@ -413,9 +419,9 @@ reset role;
 drop policy "tmp open update" on public.players;
 
 -- ---------------------------------------------------------------- auto-reject + deletion
--- The one-pending-per-player index normally makes a second pending request impossible, so
--- drop it (inside this rolled-back transaction) to exercise the defensive auto-reject.
-drop index public.claim_requests_one_pending_per_player;
+-- Before 20261204000000_rsvp_abuse_limits.sql a per-player index blocked a second pending
+-- request; drop it if it is still there (inside this rolled-back transaction).
+drop index if exists public.claim_requests_one_pending_per_player;
 insert into public.player_claim_requests (player_id, user_id)
 select (select id from t_p where name = 'p9'), id from t_u where name in ('jon', 'kim');
 

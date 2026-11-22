@@ -62,6 +62,7 @@ describe('claimErrorMessage', () => {
     expect(claimErrorMessage({ code: '42501', message: 'Admins only' })).toBe('Only admins can do that.')
     expect(claimErrorMessage({ code: '55000', message: 'Player is already claimed' })).toBe('Player is already claimed')
     expect(claimErrorMessage({ code: 'P0002', message: 'x' })).toMatch(/no longer exists/)
+    expect(claimErrorMessage({ code: 'CL001', message: 'declined less than 7 days ago' })).toMatch(/after 7 days/)
     expect(claimErrorMessage(new Error('boom'))).toBe('boom')
   })
 })

@@ -47,6 +47,10 @@ export function toRsvpError(e: unknown): RsvpError {
       return new RsvpError('GUEST_GONE')
     case 'RV006':
       return new RsvpError('RATE_LIMITED')
+    case 'RV011': // 20261204000000_rsvp_abuse_limits.sql
+      return new RsvpError('ADDED_BY_ORGANIZER')
+    case 'RV012':
+      return new RsvpError('RATE_LIMITED', { message: 'Too many RSVPs from this network. Ask an admin for help.' })
     case 'RV007':
     case 'RV008':
       return new RsvpError('BAD_REQUEST')

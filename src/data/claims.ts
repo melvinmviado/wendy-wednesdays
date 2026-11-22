@@ -32,6 +32,7 @@ export function claimErrorMessage(e: unknown): string {
   if (code === '42501') return 'Only admins can do that.'
   if (code === 'P0002') return 'That request no longer exists. Refresh and try again.'
   if (code === '55000') return message || 'That request has already been handled.'
+  if (code === 'CL001') return 'Your last request for this player was declined. You can ask again after 7 days.'
   if (code === '23514') return `Keep the message under ${MAX_CLAIM_MESSAGE} characters.`
   return errorMessage(e, 'Something went wrong. Please try again.')
 }

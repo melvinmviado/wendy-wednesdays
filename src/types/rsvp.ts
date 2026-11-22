@@ -121,6 +121,7 @@ export type RsvpErrorCode =
   | 'NOT_OPEN_YET'
   | 'NAME_CLAIMED'
   | 'TOKEN_MISMATCH'
+  | 'ADDED_BY_ORGANIZER' // an admin added this spot; only an admin or the signed-in player can change it
   | 'NAME_EXISTS_SUGGESTION'
   | 'NAME_ON_LIST' // admin rename: another guest on this list already has that name
   | 'GUEST_GONE' // admin rename: the guest is no longer on the list
@@ -140,6 +141,7 @@ const MESSAGES: Record<RsvpErrorCode, string> = {
   CUTOFF_PASSED: 'RSVPs are closed for this week. Ask an admin if you still need a spot.',
   NAME_CLAIMED: 'That name belongs to a signed-in player. Sign in to RSVP as them.',
   TOKEN_MISMATCH: "That spot was set from another device, so it can't be changed here.",
+  ADDED_BY_ORGANIZER: 'An organizer added this spot. Ask them to change it, or sign in as your player.',
   NAME_EXISTS_SUGGESTION: 'That name is already on the player list.',
   NAME_ON_LIST: 'Another guest on the list already has that name.',
   GUEST_GONE: 'That guest is no longer on the list.',

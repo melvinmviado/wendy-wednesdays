@@ -12,6 +12,8 @@ describe('toRsvpError', () => {
     ['RV004', 'INVALID_NAME'],
     ['RV006', 'RATE_LIMITED'],
     ['RV010', 'NAME_ON_LIST'],
+    ['RV011', 'ADDED_BY_ORGANIZER'],
+    ['RV012', 'RATE_LIMITED'],
     ['P0002', 'GUEST_GONE'],
     ['RV007', 'BAD_REQUEST'],
     ['RV008', 'BAD_REQUEST'],
@@ -19,6 +21,11 @@ describe('toRsvpError', () => {
     ['PGRST202', 'UNAVAILABLE'],
   ])('maps %s to %s', (sqlstate, code) => {
     expect(toRsvpError({ code: sqlstate, message: 'raw db text' }).code).toBe(code)
+  })
+
+  it('says which limit was hit: device or network', () => {
+    expect(toRsvpError({ code: 'RV006' }).message).toMatch(/this device/)
+    expect(toRsvpError({ code: 'RV012' }).message).toMatch(/this network/)
   })
 
   it('never shows the raw database message', () => {
