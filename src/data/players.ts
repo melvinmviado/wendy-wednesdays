@@ -196,7 +196,7 @@ export async function createPlayer(name: string): Promise<Result<PlayerScore>> {
   try {
     const { data, error } = await supabase
       .from('players')
-      .insert({ name: clean, weeks_played: 0, total_points: 0 })
+      .insert({ name: clean }) // totals are computed by the database (always 0 for a new player)
       .select()
       .single()
     if (error) return { ok: false, error: toAdminError(error) }

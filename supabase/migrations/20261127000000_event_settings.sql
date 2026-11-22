@@ -25,6 +25,9 @@
 --     other weekdays (RV007). The trigger below rejects a non-Wednesday start so a bad setting
 --     cannot wedge RSVPs. A different weekday needs a follow-up migration touching those.
 
+-- One transaction (added after first release): an error part-way leaves nothing half applied.
+begin;
+
 do $$
 begin
   if to_regprocedure('public.is_admin()') is null then
@@ -160,3 +163,5 @@ select 1,
        'America/Toronto', 24
 from (select public.rsvp_session_date() as d) x
 on conflict (id) do nothing;
+
+commit;

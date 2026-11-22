@@ -32,13 +32,12 @@ A modern, fast, and production-ready React starter designed to be deployed seaml
 
 ## ⚡ Supabase Setup (Database & Admin Auth)
 
-### 1. Run Database Schema Migration
-Open your project's **SQL Editor** in the [Supabase Dashboard](https://supabase.com/dashboard) and run the contents of [`supabase/schema.sql`](file:///d:/Repositories/wendy-wednesdays/supabase/schema.sql):
-- Creates the `players` table with columns: `id`, `name`, `weeks_played`, `total_points`, `created_at`.
-- Enables **Row Level Security (RLS)**:
-  - **Public Read (`SELECT`)**: Anyone can view the season leaderboard.
-  - **Admin Write (`INSERT`, `UPDATE`, `DELETE`)**: Only authenticated users (`auth.role() = 'authenticated'`) can add or edit player records.
-- Seeds initial sample players.
+### 1. Apply the database migrations
+The schema lives in [`supabase/migrations/`](supabase/migrations). Open your project's **SQL Editor** in the [Supabase Dashboard](https://supabase.com/dashboard) and run each file **in filename order**, starting with `20261117000000_baseline.sql`. Every file is idempotent and checks its prerequisites.
+- **Public read**: anyone can view the leaderboard, results and RSVP list.
+- **Admin write**: only admins (`public.is_admin()`) can change players, scores and settings. Anonymous RSVPs go through `set_rsvp()`, which enforces the cutoff and the per-device and per-network limits.
+- Run [`supabase/checks/migration_status.sql`](supabase/checks/migration_status.sql) at any time to see which migrations a database has, and the scripts in [`supabase/tests/`](supabase/tests) to verify it (each runs in a rolled-back transaction).
+- See [`docs/deploy-checklist.md`](docs/deploy-checklist.md) for the full deploy order.
 
 ### 2. Configure Environment Variables
 Create a `.env` file in the project root (see [`.env.example`](file:///d:/Repositories/wendy-wednesdays/.env.example)):

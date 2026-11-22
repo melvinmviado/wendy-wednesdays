@@ -66,7 +66,12 @@ wendy-wednesdays/
 
 ├── supabase/
 
-│   └── schema.sql           # Tables, RLS policies, leaderboard view and trigger, seed data
+│   ├── migrations/          # The schema, in filename order (20261117000000_baseline.sql first);
+│   │                        # applied by hand in the SQL Editor
+
+│   ├── tests/               # SQL tests: one rolled-back transaction each, PASS notices
+
+│   └── checks/              # Read-only checks (migration_status.sql, verify_admin_access.sql)
 
 └── src/
 

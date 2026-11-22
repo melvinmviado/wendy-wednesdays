@@ -19,18 +19,32 @@ else is simply refused by RLS), so applying SQL first is always safe.
 
 ## 1. Apply the migrations, in this order
 
-Paste each file into the Supabase SQL Editor and run it. All are idempotent (re-running is safe
-and never re-promotes anyone). Each one checks its prerequisites and stops with a clear message
-if you run them out of order.
+Run `supabase/checks/migration_status.sql` first: it lists every migration as applied or MISSING.
+Then paste each missing file into the Supabase SQL Editor and run it, in filename order. All are
+idempotent (re-running is safe and never re-promotes anyone). Each one checks its prerequisites
+and stops with a clear message if you run them out of order.
 
 | # | File | What it does |
 |---|------|--------------|
+| 0 | `20261117000000_baseline.sql` | the original tables, view and totals trigger (replaces the old `schema.sql`). **New databases only**; a database built from `schema.sql` already has it |
 | 1 | `20261118000000_profiles_foundation.sql` | `profiles`, signup trigger, role to JWT mirror, `is_admin()`, admin policies on `weekly_scores` / `weeks` / `week-photos`, **backfill (existing accounts become admins)** |
 | 2 | `20261119000000_player_admin.sql` | archive/rename/delete columns, `players` admin policies, name uniqueness |
 | 3 | `20261120000000_player_claims.sql` | `players.user_id`, claim requests, approve/reject/unlink RPCs, guards |
 | 4 | `20261121000000_avatars_bucket.sql` | public `avatars` bucket (2 MB, jpeg/png/webp) and per-user path policies |
 | 5 | `20261122000000_player_avatars.sql` | `players.avatar_url`, avatar in `season_leaderboard` |
 | 6 | `20261123000000_claim_request_emails.sql` | admin-only `admin_pending_claims()` so admins see each requester's email |
+| 7 | `20261124000000_rsvps.sql` | weekly RSVPs: `rsvps` table (sealed), `set_rsvp()`, roster and state RPCs |
+| 8 | `20261125000000_admin_rsvps.sql` | admins add/remove players on the RSVP list |
+| 9 | `20261126000000_admin_guest_rsvps.sql` | admins add/remove guests |
+| 10 | `20261127000000_event_settings.sql` | admin-editable cutoff, start/end and capacity |
+| 11 | `20261128000000_rsvp_open_at.sql` | optional RSVP open time |
+| 12 | `20261129000000_player_roles.sql` | cosmetic player roles |
+| 13 | `20261130000000_leaderboard_role.sql` | role in `season_leaderboard` |
+| 14 | `20261201000000_admin_rename_guest_rsvp.sql` | admins rename guests |
+| 15 | `20261202000000_leaderboard_claimed.sql` | `is_claimed` in `season_leaderboard` |
+| 16 | `20261203000000_security_hardening.sql` | closes `public_profiles`, pins avatar URLs to the user's own file, limits `week-photos` |
+| 17 | `20261204000000_rsvp_abuse_limits.sql` | protects admin-added RSVPs, per-network RSVP cap, several claimants per player, 7-day wait after a rejected claim. **Then follow its VERIFY AFTER APPLYING note** |
+| 18 | `20261205000000_db_cleanup.sql` | totals trigger fixes (moved scores, no direct writes), `is_admin()` once per query, foreign-key indexes |
 
 ## 2. Verify the database
 
@@ -38,10 +52,9 @@ if you run them out of order.
       `profile_role = admin` AND `jwt_claim = admin`; sections 2, 5 and 6 return **zero rows**;
       section 4 shows `is_security_definer = true`.
 - [ ] Demote strays: `update public.profiles set role = 'user' where id = '<uuid>';`
-- [ ] Optionally run the test scripts in `supabase/tests/` (each rolls back; nothing is kept):
-      `player_admin_rls`, `profiles_escalation`, `player_claims`, `avatars_bucket`,
-      `player_avatars`, `claim_request_emails`, `security_model`. Every one prints `PASS ...` lines and raises an
-      exception on failure.
+- [ ] Run the test scripts in `supabase/tests/` (each rolls back; nothing is kept). Every one
+      prints `PASS ...` lines and raises an exception on failure. Paste them into the SQL Editor
+      one at a time, or run them all against a staging database with `supabase/run-tests.sh`.
 - [ ] Keep at least one admin you can sign in as before you demote anyone.
 
 ## 3. Supabase Auth settings (Dashboard > Authentication)
@@ -52,10 +65,14 @@ if you run them out of order.
 - [ ] **URL Configuration > Redirect URLs:** add the production origin, `http://localhost:5173`
       for local dev, and your Cloudflare preview pattern, e.g. `https://*.wendy-wednesdays.pages.dev`.
       A redirect not on this list is silently replaced by the Site URL.
-- [ ] **Sign In / Providers > Email:** enabled. **Confirm email: OFF** (the app handles both, but
-      this is what you chose). Allow new users to sign up: ON (open sign-up).
-- [ ] **Password length:** Supabase's default minimum is 6, which is what the app enforces. Raise
-      it in Supabase and in `MIN_PASSWORD_LENGTH` (`src/utils/authValidation.ts`) together if you want more.
+- [ ] **Sign In / Providers > Email:** enabled. Allow new users to sign up: ON (open sign-up).
+      **Confirm email: turn it ON once custom SMTP is set up.** While it is OFF, Supabase itself
+      tells a sign-up form whether an address already has an account, and sign-up addresses are
+      unverified. With it ON, the app answers every sign-up with "check your email".
+- [ ] **Password length: 8.** The app enforces `MIN_PASSWORD_LENGTH` (`src/utils/authValidation.ts`);
+      set the same minimum in Supabase, and turn on **leaked password protection**.
+- [ ] **Redirect URLs:** never a bare `https://*.pages.dev/**` wildcard: that lets any pages.dev
+      site receive sign-in tokens. Scope it to your project (`https://*.wendy-wednesdays.pages.dev/**`).
 - [ ] **Email delivery:** Supabase's built-in mailer is limited to a handful of emails per hour,
       which magic links will hit quickly. Configure **custom SMTP** (Project Settings > Auth >
       SMTP) before announcing sign-up.
@@ -77,9 +94,13 @@ Vite bakes these in **at build time**, so changing one needs a new deployment. S
 | `VITE_SUPABASE_ANON_KEY` | the anon (public) key. **Never** the `service_role` key |
 | `VITE_GOOGLE_AUTH_ENABLED` | optional. `false` hides the Google button; leave unset to show it |
 
-- [ ] Build command `npm run build`, output directory `dist` (unchanged).
+- [ ] Build command `npm run build`, output directory `dist` (unchanged). **The build fails if
+      `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are missing** (it would otherwise ship demo
+      mode). Set them for Preview too, or set `ALLOW_DEMO_BUILD=1` to build the demo on purpose.
 - [ ] `public/_redirects` (SPA fallback) and `public/_headers` are already in the repo. Email links
-      and OAuth return to `/`, so no extra routes are needed.
+      and OAuth return to `/`, so no extra routes are needed. The build fills your Supabase origin
+      into the Content-Security-Policy in `dist/_headers`; check it in the browser's dev tools
+      after deploying (no CSP errors in the console).
 
 ## 5. Ship the client, then smoke test
 

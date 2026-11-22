@@ -162,7 +162,7 @@ export default function App() {
             <div className="space-y-1">
               <p className="font-semibold">Database Notice: {dbError}</p>
               <p className="text-ink-soft leading-relaxed">
-                Run the script in <code className="bg-ground px-1.5 py-0.5 rounded text-ink">supabase/schema.sql</code> in your Supabase SQL Editor to set up the tables and computed view.
+                Run the files in <code className="bg-ground px-1.5 py-0.5 rounded text-ink">supabase/migrations</code> in your Supabase SQL Editor, in filename order, to set up the tables and computed view.
               </p>
             </div>
           </div>
