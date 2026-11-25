@@ -59,7 +59,7 @@ const fail = (code: string, message: string): CourtResult<never> => ({ ok: false
 
 const FRIENDLY: Record<string, string> = {
   UNAVAILABLE: "Court assignments aren't set up on this database yet. Apply the court assignment migrations.",
-  NOT_DEPLOYED: "The generate-court-assignments function isn't deployed yet.",
+  NOT_DEPLOYED: "Couldn't reach the generate-court-assignments function. It is probably not deployed yet: see docs/court-assignments-runbook.md, section 2.",
   NETWORK: "Can't reach the server. Check your connection and try again.",
   FORBIDDEN: 'Only admins can change court settings or generate assignments.',
   CA002: 'Some players are already on courts outside that range. Generate the board again, or keep a wider range.',
@@ -171,7 +171,13 @@ export const supabaseCourtAssignmentsApi: CourtAssignmentsApi = {
       body: { eventId: sessionDate, force },
     })
     if (error) {
-      if (error instanceof FunctionsFetchError) return fail('NETWORK', FRIENDLY.NETWORK)
+      // A function that isn't deployed answers the browser's CORS preflight with 404, and the browser
+      // reports that only as a failed fetch. So when the device is online, say so instead of "offline".
+      if (error instanceof FunctionsFetchError) {
+        return typeof navigator !== 'undefined' && navigator.onLine === false
+          ? fail('NETWORK', FRIENDLY.NETWORK)
+          : fail('NOT_DEPLOYED', FRIENDLY.NOT_DEPLOYED)
+      }
       if (error instanceof FunctionsHttpError) {
         const response = error.context as Response
         if (response.status === 404) return fail('NOT_DEPLOYED', FRIENDLY.NOT_DEPLOYED)
