@@ -1,41 +1,54 @@
 import { buildCourtOrder } from '@/lib/courtAssignment'
 
-/** The two text fields as typed. */
-export interface CourtFormValues {
-  top: string
-  bottom: string
-}
-
 export interface CourtFormCheck {
-  errors: Partial<Record<keyof CourtFormValues, string>>
-  /** Court numbers top to bottom; null while there are errors. */
+  error: string | null
+  /** Court numbers top to bottom; null while there is an error. */
   courtOrder: number[] | null
 }
 
-/** More courts than the largest capacity (200 players) can fill is a typo, not a plan. */
+/** More courts than the largest capacity (200 players) can fill is a typo, not a plan. Same cap as the database. */
 export const MAX_COURTS = 50
 
-function parseCourt(value: string): number | null {
-  const v = value.trim()
-  return /^\d+$/.test(v) && Number(v) >= 1 ? Number(v) : null
-}
+/** Keeps a typo like 100000000000000000000 from reaching the database's integer column. */
+const MAX_COURT_NUMBER = 9999
 
-/** Mirrors event_court_settings (positive whole numbers, either direction) plus a sanity cap. */
-export function checkCourtForm(values: CourtFormValues): CourtFormCheck {
-  const errors: CourtFormCheck['errors'] = {}
-  const top = parseCourt(values.top)
-  const bottom = parseCourt(values.bottom)
-  if (top === null) errors.top = 'Enter a court number of 1 or more.'
-  if (bottom === null) errors.bottom = 'Enter a court number of 1 or more.'
-  if (top === null || bottom === null) return { errors, courtOrder: null }
+const tooMany = (count: number) => `That is ${count} courts. Check the numbers: at most ${MAX_COURTS} can be filled.`
 
-  const count = Math.abs(top - bottom) + 1
-  if (count > MAX_COURTS) {
-    errors.bottom = `That is ${count} courts. Check the numbers: at most ${MAX_COURTS} can be filled.`
-    return { errors, courtOrder: null }
+/**
+ * The facility's courts as typed, top court first: "10, 9, 8, 7, 3, 2". Commas or spaces separate
+ * them, and "10-7" is short for 10, 9, 8, 7. Mirrors event_court_settings.court_numbers: 1 to 50
+ * different whole numbers of 1 or more, in any order.
+ */
+export function checkCourtNumbers(text: string): CourtFormCheck {
+  const tokens = text
+    .replace(/\s*[-–—]\s*/g, '-')
+    .split(/[\s,;]+/)
+    .filter(Boolean)
+  if (tokens.length === 0) return { error: 'Enter the court numbers, top court first.', courtOrder: null }
+
+  const order: number[] = []
+  for (const token of tokens) {
+    const range = /^(\d+)-(\d+)$/.exec(token)
+    if (!range && !/^\d+$/.test(token)) {
+      return { error: `"${token}" isn't a court number. Use whole numbers, like 10, 9, 8, 7, 3, 2.`, courtOrder: null }
+    }
+    const [from, to] = range ? [Number(range[1]), Number(range[2])] : [Number(token), Number(token)]
+    if (from < 1 || to < 1) return { error: 'Court numbers start at 1.', courtOrder: null }
+    if (from > MAX_COURT_NUMBER || to > MAX_COURT_NUMBER) {
+      return { error: `Court numbers go up to ${MAX_COURT_NUMBER}.`, courtOrder: null }
+    }
+    if (Math.abs(from - to) + 1 > MAX_COURTS) return { error: tooMany(Math.abs(from - to) + 1), courtOrder: null }
+    order.push(...buildCourtOrder(from, to))
   }
-  return { errors, courtOrder: buildCourtOrder(top, bottom) }
+
+  if (order.length > MAX_COURTS) return { error: tooMany(order.length), courtOrder: null }
+  const twice = order.find((n, i) => order.indexOf(n) !== i)
+  if (twice !== undefined) return { error: `Court ${twice} is listed twice.`, courtOrder: null }
+  return { error: null, courtOrder: order }
 }
+
+/** How a saved list starts out in the field: "10, 9, 8, 7, 3, 2". */
+export const formatCourtNumbers = (order: number[]): string => order.join(', ')
 
 /** "4 courts: 10, 9, 8, 7 (top → bottom)", or "1 court: 5". */
 export function describeCourtOrder(order: number[]): string {

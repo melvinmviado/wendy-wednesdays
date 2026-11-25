@@ -12,7 +12,7 @@ import {
 /**
  * Court settings and board status for one run, with save and "Generate now". Both actions reload
  * the snapshot afterwards, so the panel shows what the database holds (a failed generate may still
- * have turned guests into players, or filled in the run's court range).
+ * have turned guests into players, or filled in the run's court numbers).
  */
 export function useCourtSettings(sessionDate: string, api: CourtAssignmentsApi = courtAssignmentsApi) {
   const [snapshot, setSnapshot] = useState<CourtSettingsSnapshot | null>(null)

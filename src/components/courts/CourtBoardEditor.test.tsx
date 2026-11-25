@@ -13,8 +13,7 @@ const p = (id: string, name: string, seat: BoardEntry['seat'], seedRank: number)
 // Courts 10 (top) and 9 (bottom). Four on court 10, Eve sitting out, court 9 empty.
 const draft = (): BoardData => ({
   sessionDate: '2026-11-25',
-  top: 10,
-  bottom: 9,
+  courtNumbers: [10, 9],
   autoPublish: false,
   state: 'draft',
   manuallyEdited: false,

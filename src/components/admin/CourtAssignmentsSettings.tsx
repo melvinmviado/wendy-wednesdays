@@ -12,7 +12,7 @@ interface CourtAssignmentsSettingsProps {
   toast: (kind: 'success' | 'error', message: string) => void
 }
 
-/** Starting courts for the coming run: the court range, auto-publish, and "Generate now". */
+/** Starting courts for the coming run: the court numbers, auto-publish, and "Generate now". */
 export const CourtAssignmentsSettings: React.FC<CourtAssignmentsSettingsProps> = ({ eventSettings, toast }) => {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -54,7 +54,7 @@ export const CourtAssignmentsSettings: React.FC<CourtAssignmentsSettingsProps> =
       {snapshot && (
         <>
           <CourtRangeForm
-            key={`${sessionDate}|${settings?.sessionDate}|${settings?.top}|${settings?.bottom}|${settings?.autoPublish}`}
+            key={`${sessionDate}|${settings?.sessionDate}|${settings?.courtNumbers.join(',')}|${settings?.autoPublish}`}
             settings={settings}
             inherited={snapshot.inherited}
             save={save}

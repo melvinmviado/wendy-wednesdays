@@ -12,7 +12,8 @@ Do it on staging first, then production. The steps are in order.
 
 1. Apply `supabase/migrations/20261206000000_court_assignments.sql` first, if it isn't applied yet, then `20261207000000_court_assignment_generation.sql`. Use the SQL Editor (see `docs/deploy-checklist.md`).
 2. Run `supabase/tests/court_assignment_generation.sql`. It prints `PASS ...` lines and rolls back.
-3. In the app, open **Admin > Event setup > Starting courts**. Save the top and bottom court numbers. Later runs reuse them until you change them.
+3. Apply `20261210000000_court_numbers_list.sql` too, and run `supabase/tests/court_numbers_list.sql`.
+4. In the app, open **Admin > Event setup > Starting courts**. Enter the court numbers top court first, separated by commas: `10, 9, 8, 7, 3, 2` for the facility. A run of courts can be written `10-7`. Later runs reuse them until you change them.
 
 ## 2. Edge Function
 
@@ -61,6 +62,7 @@ curl -i -X POST https://<project-ref>.supabase.co/functions/v1/generate-court-as
 
 ## How it behaves
 
+- **Courts.** The best four players start on the first court in the list, the next four on the second, and so on. Courts with no full foursome stay empty. Changing the list later renumbers a board already made, seat for seat; a shorter list is refused while players are seated on the courts it drops (`CA002`).
 - **When.** The job picks up a run once `rsvp_cutoff_at(run)` has passed: the cutoff the RSVP bar already enforces. That is the admin's saved cutoff ("Cutoff 24h before start" fills in start − 24h), or Wednesday 6 PM if none is saved. It stops at the end of the night.
 - **Draft by default.** A new board is a draft only admins see. With **Auto-publish on generate** on, it is published at once.
 - **Generate now** (Admin > Event setup) works only after the cutoff.
@@ -101,6 +103,7 @@ The editor needs `20261208000000_court_assignment_editing.sql`, and `20261209000
 |------|---------|-----|
 | `CA010` | A confirmed guest has the same name as a roster player, so generation stops rather than create a duplicate | Rename the guest on the RSVP list, or remove the guest and add the player. The job retries every 5 minutes. |
 | `CA001` | No court numbers saved, for this run or any earlier one | Save them under Starting courts |
+| `CA002` | The new court list is shorter than the board needs | Keep as many courts, or generate the board again first |
 | `CA011` | RSVPs are still open | Wait for the cutoff |
 | `CA012` | The board was edited by hand | Use Generate now and confirm |
 | `CA013` | The list kept changing during generation | Try again |

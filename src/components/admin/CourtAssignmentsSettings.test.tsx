@@ -6,7 +6,7 @@ import { CourtRangeForm } from './CourtRangeForm'
 import { describeGenerated } from '@/utils/courtActivity'
 import { GenerateBoardSection } from './GenerateBoardSection'
 
-const saved: CourtSettings = { sessionDate: '2026-11-25', top: 10, bottom: 7, autoPublish: false }
+const saved: CourtSettings = { sessionDate: '2026-11-25', courtNumbers: [10, 9, 8, 7], autoPublish: false }
 
 describe('CourtRangeForm', () => {
   const setup = (settings: CourtSettings | null = saved, inherited = false) => {
@@ -22,31 +22,39 @@ describe('CourtRangeForm', () => {
     expect(screen.getByRole('button', { name: 'Save courts' })).toBeDisabled() // nothing changed
   })
 
-  it('updates the preview live, in either direction', async () => {
+  const field = () => screen.getByLabelText('Court numbers, top court first')
+
+  it('updates the preview live, gaps included', async () => {
     const { user } = setup()
-    await user.clear(screen.getByLabelText('Bottom court number'))
-    await user.type(screen.getByLabelText('Bottom court number'), '12')
-    expect(screen.getByRole('status')).toHaveTextContent('3 courts: 10, 11, 12 (top → bottom)')
+    await user.clear(field())
+    await user.type(field(), '10-7, 3, 2')
+    expect(screen.getByRole('status')).toHaveTextContent('6 courts: 10, 9, 8, 7, 3, 2 (top → bottom)')
   })
 
-  it('shows an inline error and does not save an invalid court', async () => {
+  it('shows an inline error and does not save an invalid list', async () => {
     const { save, user } = setup(null)
-    await user.type(screen.getByLabelText('Top court number'), '0')
-    await user.type(screen.getByLabelText('Bottom court number'), '4')
+    await user.type(field(), '10, 9, 10')
     await user.click(screen.getByRole('button', { name: 'Save courts' }))
-    expect(screen.getByText('Enter a court number of 1 or more.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Top court number')).toHaveAttribute('aria-invalid', 'true')
-    expect(screen.getByRole('status')).toHaveTextContent('Enter both court numbers to see the courts.')
+    expect(screen.getByText('Court 10 is listed twice.')).toBeInTheDocument()
+    expect(field()).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent('Enter the court numbers to see the courts.')
     expect(save).not.toHaveBeenCalled()
   })
 
-  it('saves the numbers and auto-publish, then confirms with a toast', async () => {
+  it('does not count retyping the same courts as a change', async () => {
+    const { user } = setup()
+    await user.clear(field())
+    await user.type(field(), '10,9,8,7')
+    expect(screen.getByRole('button', { name: 'Save courts' })).toBeDisabled()
+  })
+
+  it('saves the list and auto-publish, then confirms with a toast', async () => {
     const { save, toast, user } = setup()
-    await user.clear(screen.getByLabelText('Top court number'))
-    await user.type(screen.getByLabelText('Top court number'), '4')
+    await user.clear(field())
+    await user.type(field(), '10, 9, 8, 7, 3, 2')
     await user.click(screen.getByRole('checkbox', { name: /Auto-publish on generate/ }))
     await user.click(screen.getByRole('button', { name: 'Save courts' }))
-    expect(save).toHaveBeenCalledWith({ top: 4, bottom: 7, autoPublish: true })
+    expect(save).toHaveBeenCalledWith({ courtNumbers: [10, 9, 8, 7, 3, 2], autoPublish: true })
     expect(toast).toHaveBeenCalledWith('success', 'Court settings saved.')
   })
 

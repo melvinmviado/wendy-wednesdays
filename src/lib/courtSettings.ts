@@ -1,4 +1,5 @@
 import { FunctionsFetchError, FunctionsHttpError } from '@supabase/supabase-js'
+import { buildCourtOrder } from '@/lib/courtAssignment'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { errorMessage } from '@/utils/errorMessage'
 
@@ -8,8 +9,8 @@ import { errorMessage } from '@/utils/errorMessage'
 
 export interface CourtSettings {
   sessionDate: string // YYYY-MM-DD, the run's Wednesday
-  top: number
-  bottom: number
+  /** The facility's courts in play, top court first: [10, 9, 8, 7, 3, 2]. */
+  courtNumbers: number[]
   autoPublish: boolean
 }
 
@@ -62,7 +63,8 @@ const FRIENDLY: Record<string, string> = {
   NOT_DEPLOYED: "The generate-court-assignments function isn't deployed yet.",
   NETWORK: "Can't reach the server. Check your connection and try again.",
   FORBIDDEN: 'Only admins can change court settings or generate assignments.',
-  CA002: 'Some players are already on courts outside that range. Generate the board again, or keep a wider range.',
+  CA002: 'Some players are on courts this list drops. Generate the board again, or keep as many courts.',
+  '23514': 'Check the court numbers: 1 to 50 different whole numbers of 1 or more.',
   CA011: 'RSVPs are still open. You can generate once they close.',
   CA013: 'The RSVP list kept changing. Try again in a moment.',
   CA020: "There's no board for this run yet.",
@@ -89,8 +91,7 @@ export function toCourtError(e: unknown, fallback: string): CourtSettingsError {
 
 interface SettingsRow {
   session_date: string
-  top_court_number: number
-  bottom_court_number: number
+  court_numbers: number[]
   auto_publish: boolean
 }
 
@@ -101,12 +102,12 @@ interface MetaRow {
   manually_edited: boolean
 }
 
-const SETTINGS_COLUMNS = 'session_date, top_court_number, bottom_court_number, auto_publish'
+// court_numbers needs 20261210000000_court_numbers_list.sql; without it, loading reports UNAVAILABLE.
+const SETTINGS_COLUMNS = 'session_date, court_numbers, auto_publish'
 
 const toSettings = (r: SettingsRow): CourtSettings => ({
   sessionDate: r.session_date,
-  top: r.top_court_number,
-  bottom: r.bottom_court_number,
+  courtNumbers: r.court_numbers,
   autoPublish: r.auto_publish,
 })
 
@@ -150,8 +151,7 @@ export const supabaseCourtAssignmentsApi: CourtAssignmentsApi = {
         .upsert(
           {
             session_date: input.sessionDate,
-            top_court_number: input.top,
-            bottom_court_number: input.bottom,
+            court_numbers: input.courtNumbers,
             auto_publish: input.autoPublish,
           },
           { onConflict: 'session_date' }
@@ -199,9 +199,18 @@ export const supabaseCourtAssignmentsApi: CourtAssignmentsApi = {
 
 const DEMO_KEY = 'wendy_court_settings'
 
+type StoredDemo = CourtSettings & { top?: number; bottom?: number }
+
+/** Saved demo settings. Ones saved before court lists (top and bottom only) read as that range. */
 function readDemo(): Record<string, CourtSettings> {
   try {
-    return JSON.parse(localStorage.getItem(DEMO_KEY) ?? '{}') as Record<string, CourtSettings>
+    const raw = JSON.parse(localStorage.getItem(DEMO_KEY) ?? '{}') as Record<string, StoredDemo>
+    const out: Record<string, CourtSettings> = {}
+    for (const [date, s] of Object.entries(raw)) {
+      const courtNumbers = Array.isArray(s.courtNumbers) ? s.courtNumbers : buildCourtOrder(Number(s.top), Number(s.bottom))
+      out[date] = { sessionDate: s.sessionDate, courtNumbers, autoPublish: !!s.autoPublish }
+    }
+    return out
   } catch {
     return {}
   }

@@ -51,6 +51,8 @@ function sameSecret(a: string, b: string): boolean {
 }
 
 interface Prepared {
+  /** The facility's courts, top court first (20261210000000). Older databases send only the range. */
+  court_numbers?: number[]
   top_court_number: number
   bottom_court_number: number
   state: 'none' | 'draft' | 'published'
@@ -128,7 +130,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     try {
       result = generateStartingAssignment({
         players: input.players.map((p) => ({ id: p.id, rank: p.rank, rsvpAt: p.rsvp_at })),
-        courtOrder: buildCourtOrder(input.top_court_number, input.bottom_court_number),
+        courtOrder: input.court_numbers ?? buildCourtOrder(input.top_court_number, input.bottom_court_number),
       })
     } catch (e) {
       return fail(500, 'ALGORITHM', e instanceof Error ? e.message : String(e))

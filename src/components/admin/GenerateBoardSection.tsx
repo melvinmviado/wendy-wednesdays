@@ -7,7 +7,7 @@ import { ModalShell, modalBtnDanger, modalBtnQuiet } from './ModalShell'
 
 interface GenerateBoardSectionProps {
   meta: BoardMeta | null
-  /** A court range is saved for this run or an earlier one. */
+  /** Court numbers are saved for this run or an earlier one. */
   hasRange: boolean
   autoPublish: boolean
   /** The run's RSVP cutoff: rsvp_cutoff_at in the database, getScheduleTimestamps here. */

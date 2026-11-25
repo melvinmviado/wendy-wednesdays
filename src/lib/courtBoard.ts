@@ -9,8 +9,8 @@ import type { BoardEdit, BoardEntry, PlayerRef } from '@/utils/courtBoardModel'
 
 export interface BoardData {
   sessionDate: string
-  top: number
-  bottom: number
+  /** The facility's courts, top court first. */
+  courtNumbers: number[]
   autoPublish: boolean
   state: 'draft' | 'published'
   manuallyEdited: boolean
@@ -92,7 +92,7 @@ export const supabaseCourtBoardApi: CourtBoardApi = {
     attempt("Couldn't load the board.", async () => {
       const [m, s, b, c] = await Promise.all([
         supabase.from('event_assignment_meta').select('state, generated_at, published_at, manually_edited').eq('session_date', d).maybeSingle(),
-        supabase.from('event_court_settings').select('top_court_number, bottom_court_number, auto_publish').eq('session_date', d).maybeSingle(),
+        supabase.from('event_court_settings').select('court_numbers, auto_publish').eq('session_date', d).maybeSingle(),
         supabase
           .from('court_assignment_board')
           .select('player_id, name, avatar_url, court_position, slot, seed_rank')
@@ -106,8 +106,7 @@ export const supabaseCourtBoardApi: CourtBoardApi = {
       if (!m.data || m.data.state === 'none' || !s.data) return ok(null)
       return ok({
         sessionDate: d,
-        top: s.data.top_court_number,
-        bottom: s.data.bottom_court_number,
+        courtNumbers: s.data.court_numbers,
         autoPublish: s.data.auto_publish,
         state: m.data.state,
         manuallyEdited: m.data.manually_edited,

@@ -27,6 +27,7 @@ from (values
   ('20261206000000_court_assignments',      to_regclass('public.court_assignments') is not null),
   ('20261207000000_court_assignment_generation', to_regprocedure('public.court_assignment_apply(date, text, boolean, jsonb, jsonb, jsonb)') is not null),
   ('20261208000000_court_assignment_editing', to_regprocedure('public.court_assignment_swap(date, uuid, uuid)') is not null),
-  ('20261209000000_court_assignment_rsvp_changes', to_regprocedure('public.court_assignment_rsvp_changes(date)') is not null)
+  ('20261209000000_court_assignment_rsvp_changes', to_regprocedure('public.court_assignment_rsvp_changes(date)') is not null),
+  ('20261210000000_court_numbers_list',     exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'event_court_settings' and column_name = 'court_numbers'))
 ) as m(migration, applied)
 order by migration;

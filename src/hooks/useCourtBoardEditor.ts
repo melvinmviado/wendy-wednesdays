@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { buildCourtOrder } from '@/lib/courtAssignment'
 import { courtBoardApi, type BoardData, type CourtBoardApi } from '@/lib/courtBoard'
 import { courtAssignmentsApi, type CourtAssignmentsApi, type CourtSettingsError } from '@/lib/courtSettings'
 import { describeGenerated } from '@/utils/courtActivity'
@@ -77,7 +76,9 @@ export function useCourtBoardEditor(sessionDate: string, { toast, api = courtBoa
     }
   }, [api, sessionDate, refetch])
 
-  const courtOrder = useMemo(() => (board ? buildCourtOrder(board.top, board.bottom) : []), [board?.top, board?.bottom])
+  // Keyed by value: each reload brings a new array with the same courts.
+  const courtKey = board?.courtNumbers.join(',') ?? ''
+  const courtOrder = useMemo(() => (courtKey ? courtKey.split(',').map(Number) : []), [courtKey])
   const view = useMemo(() => buildBoardView(board?.entries ?? [], courtOrder), [board?.entries, courtOrder])
   const issues = useMemo(() => boardIssues(board?.entries ?? [], view), [board?.entries, view])
 
@@ -107,7 +108,7 @@ export function useCourtBoardEditor(sessionDate: string, { toast, api = courtBoa
     const entries = applyEdit(before.entries, change)
     if (entries === before.entries) return // nothing to do here (or a seat that is already taken)
     setBoard({ ...before, entries, manuallyEdited: true })
-    const message = describeEdit(before.entries, change, buildCourtOrder(before.top, before.bottom))
+    const message = describeEdit(before.entries, change, before.courtNumbers)
     const undo = isUndo ? null : inverseEdit(before.entries, change)
     void enqueue(async () => {
       const result = await api.edit(sessionDate, change)
