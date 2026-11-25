@@ -45,6 +45,10 @@ and stops with a clear message if you run them out of order.
 | 16 | `20261203000000_security_hardening.sql` | closes `public_profiles`, pins avatar URLs to the user's own file, limits `week-photos` |
 | 17 | `20261204000000_rsvp_abuse_limits.sql` | protects admin-added RSVPs, per-network RSVP cap, several claimants per player, 7-day wait after a rejected claim. **Then follow its VERIFY AFTER APPLYING note** |
 | 18 | `20261205000000_db_cleanup.sql` | totals trigger fixes (moved scores, no direct writes), `is_admin()` once per query, foreign-key indexes |
+| 19 | `20261206000000_court_assignments.sql` | starting courts: per-run court range, assignments, draft/published state, audit log, `court_assignment_board` view, Realtime on the two public tables |
+| 20 | `20261207000000_court_assignment_generation.sql` | starting courts, generation: "Auto-publish on generate", the prepare/apply functions the `generate-court-assignments` Edge Function calls, and the query the cron job uses. **Then deploy the function and the cron job: `docs/court-assignments-runbook.md`** |
+| 21 | `20261208000000_court_assignment_editing.sql` | starting courts, editing: swap / move / publish / unpublish RPCs for the board editor (`/admin/courts`), each logged, and its activity feed |
+| 22 | `20261209000000_court_assignment_rsvp_changes.sql` | starting courts: the editor warns when an admin changed the RSVP list after the board was made (removed player still seated, new player not seated). Additive: one function |
 
 ## 2. Verify the database
 

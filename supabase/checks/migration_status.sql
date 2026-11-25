@@ -23,6 +23,10 @@ from (values
   ('20261202000000_leaderboard_claimed',    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'season_leaderboard' and column_name = 'is_claimed')),
   ('20261203000000_security_hardening',     exists (select 1 from pg_constraint where conname = 'profiles_avatar_url_own_storage')),
   ('20261204000000_rsvp_abuse_limits',      exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'rsvps' and column_name = 'client_ip_hash')),
-  ('20261205000000_db_cleanup',             exists (select 1 from pg_proc where proname = 'players_totals_guard' and pronamespace = 'public'::regnamespace))
+  ('20261205000000_db_cleanup',             exists (select 1 from pg_proc where proname = 'players_totals_guard' and pronamespace = 'public'::regnamespace)),
+  ('20261206000000_court_assignments',      to_regclass('public.court_assignments') is not null),
+  ('20261207000000_court_assignment_generation', to_regprocedure('public.court_assignment_apply(date, text, boolean, jsonb, jsonb, jsonb)') is not null),
+  ('20261208000000_court_assignment_editing', to_regprocedure('public.court_assignment_swap(date, uuid, uuid)') is not null),
+  ('20261209000000_court_assignment_rsvp_changes', to_regprocedure('public.court_assignment_rsvp_changes(date)') is not null)
 ) as m(migration, applied)
 order by migration;

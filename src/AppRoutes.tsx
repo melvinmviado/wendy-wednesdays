@@ -14,10 +14,12 @@ const AdminDashboard = page(() => import('./pages/admin/AdminDashboard'), (m) =>
 const AdminEventPage = page(() => import('./pages/admin/AdminEventPage'), (m) => m.AdminEventPage)
 const AdminEventsPage = page(() => import('./pages/admin/AdminEventsPage'), (m) => m.AdminEventsPage)
 const AdminPlayersPage = page(() => import('./pages/admin/AdminPlayersPage'), (m) => m.AdminPlayersPage)
+const AdminCourtsPage = page(() => import('./pages/admin/AdminCourtsPage'), (m) => m.AdminCourtsPage)
 const AdminSetupPage = page(() => import('./pages/admin/AdminSetupPage'), (m) => m.AdminSetupPage)
 const AdminResultsPage = page(() => import('./pages/admin/AdminResultsPage'), (m) => m.AdminResultsPage)
 const AdminClaimsPage = page(() => import('./pages/admin/AdminClaimsPage'), (m) => m.AdminClaimsPage)
 const AdminNotFound = page(() => import('./pages/admin/AdminNotFound'), (m) => m.AdminNotFound)
+const CourtBoardPage = page(() => import('./pages/CourtBoardPage'), (m) => m.CourtBoardPage)
 const RulesPage = page(() => import('./pages/RulesPage'), (m) => m.RulesPage)
 
 function PageLoading() {
@@ -37,6 +39,7 @@ export function AppRoutes() {
           <Route index element={<AdminDashboard />} />
           <Route path="event" element={<AdminEventPage />} />
           <Route path="players" element={<AdminPlayersPage />} />
+          <Route path="courts" element={<AdminCourtsPage />} />
           <Route path="setup" element={<AdminSetupPage />} />
           <Route path="results" element={<AdminResultsPage />} />
           <Route path="events" element={<AdminEventsPage />} />
@@ -44,6 +47,7 @@ export function AppRoutes() {
           <Route path="*" element={<AdminNotFound />} />
         </Route>
         <Route path="/rules" element={<RulesPage />} />
+        <Route path="/events/:id/courts" element={<CourtBoardPage />} />
         <Route path="*" element={<App />} />
       </Routes>
     </Suspense>

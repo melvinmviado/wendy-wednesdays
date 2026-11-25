@@ -14,6 +14,8 @@ import { formatEventDateTime } from '../../lib/datetime'
 import { formatSessionDate, getScheduleTimestamps, getSessionTimeZone } from '../../utils/rsvpSchedule'
 import { RsvpBar } from './RsvpBar'
 import { WhosPlayingSheet } from './WhosPlayingSheet'
+import { courtBoardPath } from '../../lib/publicCourtBoard'
+import { useCourtsPublished } from '../../hooks/usePublicCourtBoard'
 
 export const UNDO_MS = 5000
 
@@ -80,6 +82,10 @@ export const RsvpDock: React.FC<RsvpDockProps> = ({ players, toast, api }) => {
   refreshRef.current = r.refresh
   const refresh = useCallback(() => void refreshRef.current(), [])
 
+  // Before the early return below: hooks run on every render, in the same order.
+  const courtsPublished = useCourtsPublished(r.sessionDate)
+  const courtsHref = courtsPublished && r.sessionDate ? courtBoardPath(r.sessionDate) : null
+
   if (r.unavailable) return null // the RSVP migration is not applied: stay out of the way
 
   const canRsvp = view.kind === 'open' || view.kind === 'full'
@@ -144,13 +150,14 @@ export const RsvpDock: React.FC<RsvpDockProps> = ({ players, toast, api }) => {
         <p role="status" aria-live="polite" className="sr-only">
           {describeForScreenReader(view, r.inCount, r.capacity)}
         </p>
-        <RsvpBar view={view} busy={r.busy} onOpenSheet={() => setSheetOpen(true)} onJoin={join} onCancel={cancel} onRetry={() => void r.refresh()} />
+        <RsvpBar view={view} busy={r.busy} onOpenSheet={() => setSheetOpen(true)} onJoin={join} onCancel={cancel} onRetry={() => void r.refresh()} courtsHref={courtsHref} />
       </section>
 
       {sheetOpen && (
         <WhosPlayingSheet
           phase={r.phase}
           sessionDate={r.sessionDate}
+          courtsHref={courtsHref}
           now={r.now}
           settings={settings}
           capacity={r.capacity ?? 0}

@@ -121,7 +121,7 @@ export const RULES_SECTIONS: RulesSectionContent[] = [
           NEW_GUEST_START_COURT
             ? `First-time guests start their first night on ${NEW_GUEST_START_COURT}.`
             : null,
-          'New guests appear on the public leaderboard as soon as they finish their first run.',
+          'New guests join the roster when RSVPs close, so they appear on the public leaderboard with 0 points before their first night. Their points count from that night on.',
         ].filter((item): item is string => item !== null),
       },
     ],

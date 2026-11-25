@@ -1,4 +1,5 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
+import { CourtAssignmentsSettings } from '../../components/admin/CourtAssignmentsSettings'
 import { EventSettingsPanel } from '../../components/admin/EventSettingsPanel'
 import { useEventSettings } from '../../hooks/useEventSettings'
 import { useAdminContext } from './adminContext'
@@ -29,6 +30,7 @@ export function AdminSetupPage() {
         </div>
       )}
       <EventSettingsPanel settings={settings} update={update} toast={toasts.push} />
+      <CourtAssignmentsSettings eventSettings={settings} toast={toasts.push} />
     </>
   )
 }

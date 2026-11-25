@@ -1,19 +1,20 @@
-import { CalendarCog, CalendarDays, Users, type LucideIcon } from 'lucide-react'
+import { CalendarCog, CalendarDays, LayoutGrid, Users, type LucideIcon } from 'lucide-react'
 import { ADMIN_ROUTES, type AdminRoutePath } from './adminRoutes'
 
 export interface AdminTask {
-  id: 'event' | 'players' | 'setup'
+  id: 'event' | 'players' | 'setup' | 'courts'
   title: string
   description: string
   path: AdminRoutePath
   icon: LucideIcon
 }
 
-/** The three dashboard cards. A new admin group is one entry here plus its route in AppRoutes. */
+/** The dashboard cards. A new admin group is one entry here plus its route in AppRoutes. */
 export const ADMIN_TASKS: readonly AdminTask[] = [
   { id: 'event', title: 'Weekly event', description: 'Enter results, manage the next RSVP list, add a player or guest.', path: ADMIN_ROUTES.event, icon: CalendarDays },
   { id: 'players', title: 'Players', description: 'Add, rename or archive players and review name claims.', path: ADMIN_ROUTES.players, icon: Users },
-  { id: 'setup', title: 'Event setup', description: 'Change the event and RSVP dates.', path: ADMIN_ROUTES.setup, icon: CalendarCog },
+  { id: 'courts', title: 'Court assignments', description: 'Review, adjust and publish the starting courts.', path: ADMIN_ROUTES.courts, icon: LayoutGrid },
+  { id: 'setup', title: 'Event setup', description: 'Change the event and RSVP dates, and the starting courts.', path: ADMIN_ROUTES.setup, icon: CalendarCog },
 ]
 
 export const DASHBOARD_TITLE = 'Admin dashboard'

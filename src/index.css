@@ -9,3 +9,24 @@
     color-scheme: dark;
   }
 }
+
+/* Paper posting of the Court Board (and anything else printed): black on white, whatever the
+   screen theme, with small margins so the courts fit one page. */
+@media print {
+  @page {
+    margin: 10mm;
+  }
+  :root {
+    color-scheme: light;
+    --color-ground: #fff;
+    --color-surface: #fff;
+    --color-raised: #eee;
+    --color-line: #777;
+    --color-ink: #000;
+    --color-ink-soft: #222;
+    --color-muted: #444;
+    --color-brand: #000;
+    --color-brand-ink: #fff;
+    --color-brand-soft: #eee;
+  }
+}

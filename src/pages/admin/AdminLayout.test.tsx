@@ -27,7 +27,7 @@ const renderAt = (path: string, value: AuthContextValue) =>
   )
 
 describe('admin guard', () => {
-  it.each(['/admin', '/admin/event', '/admin/players', '/admin/setup', '/admin/results', '/admin/events', '/admin/claims', '/admin/nope'])(
+  it.each(['/admin', '/admin/event', '/admin/players', '/admin/courts', '/admin/setup', '/admin/results', '/admin/events', '/admin/claims', '/admin/nope'])(
     'sends a non-admin from %s back to the leaderboard',
     async (path) => {
       renderAt(path, auth({ isAdmin: false }))
@@ -48,11 +48,12 @@ describe('admin guard', () => {
 describe('admin pages', () => {
   const admin = auth({ isAdmin: true })
 
-  it('dashboard lists the three groups as links, with live badges and no back link', async () => {
+  it('dashboard lists the groups as links, with live badges and no back link', async () => {
     renderAt('/admin', admin)
     expect(await screen.findByRole('heading', { name: 'Admin dashboard' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Weekly event/ })).toHaveAttribute('href', '/admin/event')
     expect(screen.getByRole('link', { name: /Players/ })).toHaveAttribute('href', '/admin/players')
+    expect(screen.getByRole('link', { name: /Court assignments/ })).toHaveAttribute('href', '/admin/courts')
     expect(screen.getByRole('link', { name: /Event setup/ })).toHaveAttribute('href', '/admin/setup')
     expect(screen.getByText('5/12 in')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Admin dashboard/ })).not.toBeInTheDocument()

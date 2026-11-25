@@ -1,5 +1,5 @@
 import React from 'react'
-import { Check, ChevronUp, Loader2, Radio } from 'lucide-react'
+import { Check, ChevronUp, LayoutGrid, Loader2, Radio } from 'lucide-react'
 import type { DockView } from '../../utils/rsvpDockView'
 
 interface RsvpBarProps {
@@ -10,6 +10,8 @@ interface RsvpBarProps {
   onJoin: () => void
   onCancel: () => void
   onRetry: () => void
+  /** The run's Court Board, once its courts are published. */
+  courtsHref?: string | null
 }
 
 // Every control is at least 44px tall: this is tapped one-handed, often in a hurry.
@@ -25,8 +27,14 @@ const Row: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="mx-auto flex h-dock max-w-3xl items-center gap-3 px-4 sm:px-6">{children}</div>
 )
 
+const CourtsLink: React.FC<{ href: string }> = ({ href }) => (
+  <a href={href} className={`${pill} border border-line bg-surface text-ink hover:bg-raised`}>
+    <LayoutGrid className="h-4 w-4" aria-hidden="true" /> Courts
+  </a>
+)
+
 /** The dock's one line and its one action. All the rules live in getDockView; this only draws them. */
-export const RsvpBar: React.FC<RsvpBarProps> = ({ view, busy, onOpenSheet, onJoin, onCancel, onRetry }) => {
+export const RsvpBar: React.FC<RsvpBarProps> = ({ view, busy, onOpenSheet, onJoin, onCancel, onRetry, courtsHref }) => {
   if (view.kind === 'loading') {
     return (
       <Row>
@@ -54,6 +62,7 @@ export const RsvpBar: React.FC<RsvpBarProps> = ({ view, busy, onOpenSheet, onJoi
           <span className="truncate">{view.line}</span>
           <ChevronUp className="ml-auto h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
         </button>
+        {courtsHref && <CourtsLink href={courtsHref} />}
       </Row>
     )
   }
@@ -103,6 +112,7 @@ export const RsvpBar: React.FC<RsvpBarProps> = ({ view, busy, onOpenSheet, onJoi
           )}
         </span>
       )}
+      {courtsHref && <CourtsLink href={courtsHref} />}
     </Row>
   )
 }

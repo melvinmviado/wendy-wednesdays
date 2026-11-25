@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Check, Link as LinkIcon, TriangleAlert } from 'lucide-react'
+import { Check, Link as LinkIcon, TriangleAlert, type LucideIcon } from 'lucide-react'
 
 type CopyState = 'idle' | 'copied' | 'failed'
 
@@ -32,12 +32,15 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 interface CopyLinkButtonProps {
+  /** What is copied: a link, or any text. */
   url: string
   label?: string // idle label
+  copiedLabel?: string
+  icon?: LucideIcon
 }
 
 /** Copies `url` to the clipboard and shows "Link copied" / "Couldn't copy" for a couple of seconds. */
-export const CopyLinkButton: React.FC<CopyLinkButtonProps> = ({ url, label = 'Share' }) => {
+export const CopyLinkButton: React.FC<CopyLinkButtonProps> = ({ url, label = 'Share', copiedLabel = 'Link copied', icon = LinkIcon }) => {
   const [state, setState] = useState<CopyState>('idle')
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -50,8 +53,8 @@ export const CopyLinkButton: React.FC<CopyLinkButtonProps> = ({ url, label = 'Sh
     timer.current = setTimeout(() => setState('idle'), FEEDBACK_MS)
   }
 
-  const Icon = state === 'copied' ? Check : state === 'failed' ? TriangleAlert : LinkIcon
-  const text = state === 'copied' ? 'Link copied' : state === 'failed' ? "Couldn't copy" : label
+  const Icon = state === 'copied' ? Check : state === 'failed' ? TriangleAlert : icon
+  const text = state === 'copied' ? copiedLabel : state === 'failed' ? "Couldn't copy" : label
 
   return (
     <>
@@ -65,7 +68,7 @@ export const CopyLinkButton: React.FC<CopyLinkButtonProps> = ({ url, label = 'Sh
       </button>
       {/* Announces the result; the button text is hidden from assistive tech while it shows feedback */}
       <span aria-live="polite" className="sr-only">
-        {state === 'copied' ? 'Link copied' : state === 'failed' ? "Couldn't copy" : ''}
+        {state === 'copied' ? copiedLabel : state === 'failed' ? "Couldn't copy" : ''}
       </span>
     </>
   )

@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef } from 'react'
-import { X } from 'lucide-react'
+import { LayoutGrid, X } from 'lucide-react'
 import { useAdminRsvpPanel } from '../../hooks/useAdminRsvpPanel'
 import { useDialogBehavior } from '../../hooks/useDialogBehavior'
 import type { PlayerScore } from '../../types/leaderboard'
@@ -16,6 +16,8 @@ import { RsvpScheduleInfo } from './RsvpScheduleInfo'
 interface WhosPlayingSheetProps {
   phase: RsvpPhase | null
   sessionDate: string | null
+  /** The run's Court Board, once its courts are published. */
+  courtsHref?: string | null
   /** The server-corrected clock, and the admin's settings (null = built-in weekly schedule). */
   now: Date
   settings: EventSettings | null
@@ -95,6 +97,11 @@ export const WhosPlayingSheet: React.FC<WhosPlayingSheetProps> = (p) => {
             <h2 id={titleId} className="text-lg font-black text-ink">{live ? "Tonight's Roster" : "Who's Playing"}</h2>
             {p.sessionDate && (
               <p className="text-sm text-ink-soft">{formatSessionDate(p.sessionDate)} • {p.inCount}/{p.capacity} in • <span className="font-semibold text-ink">{spotsLeft > 0 ? `${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} left` : 'Full'}</span></p>
+            )}
+            {p.courtsHref && (
+              <a href={p.courtsHref} className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-ink underline underline-offset-2 hover:text-brand-hover">
+                <LayoutGrid className="h-4 w-4" aria-hidden="true" /> Courts are posted: see the courts
+              </a>
             )}
           </div>
           <button type="button" onClick={p.onClose} aria-label="Close" className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-soft hover:bg-raised hover:text-ink">
