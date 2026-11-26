@@ -34,7 +34,7 @@ const dock = () => screen.getByRole('region', { name: 'Weekly RSVP' })
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
-  vi.setSystemTime(new Date('2026-11-25T15:00:00Z'))
+  vi.setSystemTime(new Date('2026-11-24T15:00:00Z'))
   localStorage.clear()
   resetDeviceMemory()
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
@@ -43,14 +43,14 @@ afterEach(() => vi.useRealTimers())
 
 describe('RsvpDock', () => {
   it('open: shows the spots and an I\'m In button, with 44px+ targets', async () => {
-    await renderDock('2026-11-25T15:00:00Z')
+    await renderDock('2026-11-24T15:00:00Z')
     expect(within(dock()).getByRole('button', { name: /Wed, Nov 25 • 11\/24 spots/ })).toBeInTheDocument()
     const join = within(dock()).getByRole('button', { name: /I'm In/ })
     expect(join).toHaveClass('min-h-11')
   })
 
   it('asks who you are the first time, then shows a green Going pill straight away', async () => {
-    const { user } = await renderDock('2026-11-25T15:00:00Z')
+    const { user } = await renderDock('2026-11-24T15:00:00Z')
     await user.click(within(dock()).getByRole('button', { name: /I'm In/ }))
     const sheet = screen.getByRole('dialog', { name: "Who's Playing" })
     await user.click(within(sheet).getByRole('button', { name: 'Player 20' }))
@@ -65,7 +65,7 @@ describe('RsvpDock', () => {
   })
 
   it('cancel shows an Undo toast; Undo keeps the spot and nothing is sent', async () => {
-    const { user } = await renderDock('2026-11-25T15:00:00Z')
+    const { user } = await renderDock('2026-11-24T15:00:00Z')
     await user.click(within(dock()).getByRole('button', { name: /I'm In/ }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Player 20' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm RSVP' }))
@@ -83,7 +83,7 @@ describe('RsvpDock', () => {
   })
 
   it('tapping I\'m In inside the undo window also undoes the cancel', async () => {
-    const { user } = await renderDock('2026-11-25T15:00:00Z')
+    const { user } = await renderDock('2026-11-24T15:00:00Z')
     await user.click(within(dock()).getByRole('button', { name: /I'm In/ }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Player 20' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm RSVP' }))
@@ -94,7 +94,7 @@ describe('RsvpDock', () => {
   })
 
   it('full: offers the waitlist, then shows the place with Cancel', async () => {
-    const { user } = await renderDock('2026-11-25T15:00:00Z', { capacity: 11 })
+    const { user } = await renderDock('2026-11-24T15:00:00Z', { capacity: 11 })
     expect(within(dock()).getByRole('button', { name: /Full \(11\/11\)/ })).toBeInTheDocument()
     await user.click(within(dock()).getByRole('button', { name: 'Join Waitlist (#1)' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Player 20' }))
@@ -119,7 +119,7 @@ describe('RsvpDock', () => {
   })
 
   it('the headcount line opens Who\'s Playing with the list in order', async () => {
-    const { user } = await renderDock('2026-11-25T15:00:00Z')
+    const { user } = await renderDock('2026-11-24T15:00:00Z')
     await user.click(within(dock()).getByRole('button', { name: /11\/24 spots/ }))
     const sheet = screen.getByRole('dialog', { name: "Who's Playing" })
     expect(within(sheet).getByText(/Wed, Nov 25 • 11\/24 in/)).toBeInTheDocument()
@@ -131,14 +131,14 @@ describe('RsvpDock', () => {
   })
 
   it('announces headcount changes politely', async () => {
-    await renderDock('2026-11-25T15:00:00Z')
+    await renderDock('2026-11-24T15:00:00Z')
     const live = within(dock()).getByRole('status')
     expect(live).toHaveAttribute('aria-live', 'polite')
     expect(live).toHaveTextContent('11 of 24 spots taken.')
   })
 
   it('steps out of the way (inert, off-screen) while a text field has focus', async () => {
-    await renderDock('2026-11-25T15:00:00Z')
+    await renderDock('2026-11-24T15:00:00Z')
     const input = document.createElement('input')
     document.body.appendChild(input)
     act(() => input.focus())
@@ -151,7 +151,7 @@ describe('RsvpDock', () => {
   })
 
   it('reserves room so nothing hides behind it, and clears the home indicator', async () => {
-    const { container } = await renderDock('2026-11-25T15:00:00Z')
+    const { container } = await renderDock('2026-11-24T15:00:00Z')
     expect(container.querySelector('[aria-hidden="true"].h-\\[calc\\(var\\(--spacing-dock\\)\\+env\\(safe-area-inset-bottom\\)\\)\\]')).not.toBeNull()
     expect(dock().className).toContain('pb-[env(safe-area-inset-bottom)]')
     expect(dock().className).toContain('z-40')
@@ -163,7 +163,7 @@ describe('RsvpDock', () => {
     function Unavailable() {
       const toast = useToasts()
       const [api] = useState(() => {
-        const base = createDemoRsvpApi({ now: () => new Date('2026-11-25T15:00:00Z'), players: () => players })
+        const base = createDemoRsvpApi({ now: () => new Date('2026-11-24T15:00:00Z'), players: () => players })
         return { ...base, getState: () => Promise.reject(new RsvpError('UNAVAILABLE')) }
       })
       return (

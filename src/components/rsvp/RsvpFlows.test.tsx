@@ -54,7 +54,7 @@ const joinAs = async (name: string) => {
 beforeEach(() => {
   setRsvp.mockClear()
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
-  vi.setSystemTime(new Date('2026-11-25T15:00:00Z'))
+  vi.setSystemTime(new Date('2026-11-24T15:00:00Z'))
   localStorage.clear()
   resetDeviceMemory()
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
@@ -63,7 +63,7 @@ afterEach(() => vi.useRealTimers())
 
 describe('RSVP flows through the dock', () => {
   it('last spot: taking it makes the bar read 12/12', async () => {
-    await show('2026-11-25T15:00:00Z', { capacity: 12 })
+    await show('2026-11-24T15:00:00Z', { capacity: 12 })
     expect(within(dock()).getByRole('button', { name: /11\/12 spots/ })).toBeInTheDocument()
     await joinAs('Player 20')
     expect(within(dock()).getByText('Going')).toBeInTheDocument()
@@ -71,7 +71,7 @@ describe('RSVP flows through the dock', () => {
   })
 
   it('new guest: a name matching a player offers "Yes, I\'m …", a fresh name joins', async () => {
-    await show('2026-11-25T15:00:00Z')
+    await show('2026-11-24T15:00:00Z')
     await click(within(dock()).getByRole('button', { name: /I'm In/ }))
     const sheet = screen.getByRole('dialog')
     const input = within(sheet).getByPlaceholderText('Your name')
@@ -93,7 +93,7 @@ describe('RSVP flows through the dock', () => {
   })
 
   it('asks first: names the person and the run, Cancel keeps the typed name and sends nothing', async () => {
-    await show('2026-11-25T15:00:00Z')
+    await show('2026-11-24T15:00:00Z')
     await click(within(dock()).getByRole('button', { name: /I'm In/ }))
     const sheet = screen.getByRole('dialog')
     const input = within(sheet).getByPlaceholderText('Your name')
@@ -113,7 +113,7 @@ describe('RSVP flows through the dock', () => {
   })
 
   it('Escape cancels the question first, and only then closes the sheet', async () => {
-    await show('2026-11-25T15:00:00Z')
+    await show('2026-11-24T15:00:00Z')
     await click(within(dock()).getByRole('button', { name: /I'm In/ }))
     await click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Player 20' }))
     expect(screen.getByRole('alertdialog')).toBeInTheDocument()
@@ -125,7 +125,7 @@ describe('RSVP flows through the dock', () => {
   })
 
   it('a remembered name is asked about too, and the sheet closes with the answer', async () => {
-    await show('2026-11-25T15:00:00Z')
+    await show('2026-11-24T15:00:00Z')
     await joinAs('Player 20')
     await click(within(dock()).getByRole('button', { name: 'Cancel my spot' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(6000) })
@@ -142,7 +142,7 @@ describe('RSVP flows through the dock', () => {
 
   describe('the confirmation step', () => {
     const openGuestForm = async () => {
-      await show('2026-11-25T15:00:00Z')
+      await show('2026-11-24T15:00:00Z')
       await click(within(dock()).getByRole('button', { name: /I'm In/ }))
       const sheet = screen.getByRole('dialog')
       const input = within(sheet).getByPlaceholderText('Your name')
@@ -184,7 +184,7 @@ describe('RSVP flows through the dock', () => {
     })
 
     it("tapping I'm In twice opens one question", async () => {
-      await show('2026-11-25T15:00:00Z')
+      await show('2026-11-24T15:00:00Z')
       const join = within(dock()).getByRole('button', { name: /I'm In/ })
       await act(async () => { fireEvent.click(join); fireEvent.click(join) })
       expect(screen.getAllByRole('dialog')).toHaveLength(1)
@@ -202,7 +202,7 @@ describe('RSVP flows through the dock', () => {
     })
 
     it('never opens once check-in has closed', async () => {
-      await show('2026-11-25T23:30:00Z') // past the 6 PM cutoff
+      await show('2026-11-25T23:30:00Z') // past the Tuesday 8 PM cutoff
       expect(within(dock()).queryByRole('button', { name: /I'm In|Join Waitlist/ })).not.toBeInTheDocument()
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     })
@@ -220,14 +220,14 @@ describe('RSVP flows through the dock', () => {
   })
 
   it('a name that is already in cannot be picked again', async () => {
-    await show('2026-11-25T15:00:00Z')
+    await show('2026-11-24T15:00:00Z')
     await click(within(dock()).getByRole('button', { name: /I'm In/ }))
     const row = within(screen.getByRole('dialog')).getByRole('button', { name: /Player 1 .*Already in|Player 1Already in/ })
     expect(row).toBeDisabled()
   })
 
   it('"Not you?" forgets the remembered name', async () => {
-    await show('2026-11-25T15:00:00Z')
+    await show('2026-11-24T15:00:00Z')
     await joinAs('Player 20')
     expect(localStorage.getItem('wendy_rsvp_identity')).toContain('p20')
     await click(within(dock()).getByRole('button', { name: /Next Run/ }))
@@ -236,16 +236,16 @@ describe('RSVP flows through the dock', () => {
   })
 
   it('logged out, the roster opens and shows names but never a way to act as someone else', async () => {
-    await show('2026-11-25T15:00:00Z')
+    await show('2026-11-24T15:00:00Z')
     await click(within(dock()).getByRole('button', { name: /11\/24 spots/ }))
     const sheet = screen.getByRole('dialog', { name: "Who's Playing" })
     expect(within(sheet).getByText('13 spots left')).toBeInTheDocument()
   })
 
   it.each([
-    ['2026-11-25T22:59:00Z', /I'm In/, '5:59 PM is still open'],
-    ['2026-11-25T23:00:00Z', /RSVP closed/, '6:00 PM exactly is locked'],
-    ['2026-11-26T00:59:00Z', /RSVP closed/, '7:59 PM is locked'],
+    ['2026-11-25T00:59:00Z', /I'm In/, 'Tue 7:59 PM is still open'],
+    ['2026-11-25T01:00:00Z', /RSVP closed/, 'Tue 8:00 PM exactly is locked'],
+    ['2026-11-26T00:59:00Z', /RSVP closed/, 'Wed 7:59 PM is locked'],
     ['2026-11-26T01:00:00Z', /Live Run in Progress/, '8:00 PM is live'],
     ['2026-11-26T02:59:00Z', /Live Run in Progress/, '9:59 PM is live'],
     ['2026-11-26T03:00:00Z', /Wed, Dec 2/, '10:00 PM rolls to next week'],

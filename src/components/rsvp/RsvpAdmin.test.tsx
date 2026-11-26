@@ -10,8 +10,8 @@ import { ADMIN_ONLY_MESSAGE, RsvpError, type RsvpApi } from '../../types/rsvp'
 import { RsvpDock } from './RsvpDock'
 
 const players: PlayerScore[] = Array.from({ length: 30 }, (_, i) => ({ id: `p${i + 1}`, name: `Player ${i + 1}`, weeksPlayed: 0, totalPoints: 0 }))
-// Wed Nov 25 2026, 10 AM Toronto: open. Players 1-9 and two guests start out "in" (11 of 24).
-const NOW = new Date('2026-11-25T15:00:00Z')
+// Tue Nov 24 2026, 10 AM Toronto: open for the Nov 25 run. Players 1-9 and two guests start out "in" (11 of 24).
+const NOW = new Date('2026-11-24T15:00:00Z')
 
 let api: RsvpApi
 function Harness() {

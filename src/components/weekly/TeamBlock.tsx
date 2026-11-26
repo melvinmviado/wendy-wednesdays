@@ -47,7 +47,7 @@ export const TeamBlock: React.FC<TeamBlockProps> = ({
         <div className="flex items-center gap-1 rounded-lg border border-line bg-ground p-1">
           <button
             type="button"
-            onClick={() => onAdjust(-5)}
+            onClick={() => onAdjust(-1)}
             className={step}
             title={`Minus 5 points for both ${ordinal} place players`}
             aria-label={`Minus 5 points for both ${ordinal} place players`}
@@ -57,7 +57,7 @@ export const TeamBlock: React.FC<TeamBlockProps> = ({
           <span className="w-16 text-center text-base font-black text-ink tabular-nums">{points} pts</span>
           <button
             type="button"
-            onClick={() => onAdjust(5)}
+            onClick={() => onAdjust(1)}
             className={step}
             title={`Add 5 points for both ${ordinal} place players`}
             aria-label={`Add 5 points for both ${ordinal} place players`}

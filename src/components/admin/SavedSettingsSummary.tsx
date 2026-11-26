@@ -11,7 +11,7 @@ export const SavedSettingsSummary: React.FC<{ settings: EventSettings | null; no
       <section aria-labelledby="saved-heading" className="rounded-xl border border-line bg-surface p-4">
         <h2 id="saved-heading" className="text-sm font-bold text-ink">Currently saved</h2>
         <p className="mt-1 text-sm text-ink-soft">
-          Nothing yet, so the default schedule applies: Wednesdays 8:00 to 10:00 PM, RSVPs close at 6:00 PM, {CAPACITY} players
+          Nothing yet, so the default schedule applies: Wednesdays 8:00 to 10:00 PM, RSVPs close Tuesday 8:00 PM (24 hours before), {CAPACITY} players
           ({zoneGenericName(SESSION_TIME_ZONE)}).
         </p>
       </section>

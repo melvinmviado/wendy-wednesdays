@@ -4,19 +4,19 @@ import type { EventSettings } from '../../lib/eventSettings'
 import { getDockView } from '../../utils/rsvpDockView'
 import { RsvpScheduleInfo } from './RsvpScheduleInfo'
 
-// Wed Nov 25 2026, Toronto (EST): cutoff 6 PM = 23:00Z, run 8-10 PM = 01:00Z-03:00Z.
+// Run Wed Nov 25 2026, Toronto (EST): cutoff Tue 8 PM = Nov 25 01:00Z, run 8-10 PM = Nov 26 01:00Z-03:00Z.
 const at = (iso: string) => new Date(iso)
 
 describe('RsvpScheduleInfo', () => {
   it('shows the run, the cutoff with its zone label, and a countdown', () => {
-    render(<RsvpScheduleInfo sessionDate="2026-11-25" now={at('2026-11-25T20:45:00Z')} settings={null} />)
+    render(<RsvpScheduleInfo sessionDate="2026-11-25" now={at('2026-11-24T22:45:00Z')} settings={null} />)
     expect(screen.getByText('Wed, Nov 25, 8:00 PM – 10:00 PM EST')).toBeInTheDocument()
-    expect(screen.getByText('RSVP closes Wed, Nov 25, 6:00 PM EST')).toBeInTheDocument()
+    expect(screen.getByText('RSVP closes Tue, Nov 24, 8:00 PM EST')).toBeInTheDocument()
     expect(screen.getByText('(in 2h 15m)')).toBeInTheDocument()
   })
 
   it('shows "RSVP closed" from exactly the cutoff', () => {
-    render(<RsvpScheduleInfo sessionDate="2026-11-25" now={at('2026-11-25T23:00:00Z')} settings={null} />)
+    render(<RsvpScheduleInfo sessionDate="2026-11-25" now={at('2026-11-25T01:00:00Z')} settings={null} />)
     expect(screen.getByRole('status')).toHaveTextContent('RSVP closed')
     expect(screen.queryByText(/RSVP closes/)).not.toBeInTheDocument()
   })
